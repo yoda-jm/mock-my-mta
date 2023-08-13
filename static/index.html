@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Email List Table</title>
+  <!-- Add Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Add Font Awesome CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Email List</h1>
+    <div class="d-flex justify-content-center pagination">
+      <button id="prevPage" type="button" class="btn">Previous</button>
+      <span id="currentPage">1</span>
+      <button id="nextPage" type="button" class="btn">Next</button>
+    </div>
+    <table id="emailTable">
+      <thead>
+        <tr>
+	  <th class="sortable" data-sortby="sender">Sender</th>
+          <th>Recipients</th>
+          <th class="sortable" data-sortby="subject">Subject</th>
+          <th class="sortable" data-sortby="date">Received Time</th>
+          <th></th>
+          <th></th>
+	  <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Email Content Div -->
+  <div class="container">
+    <div class="email-content" id="emailContentDiv">
+      <h1>Email view</h1>
+      <div id="emailContent"></div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
