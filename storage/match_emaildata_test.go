@@ -1,17 +1,19 @@
-package email
+package storage
 
 import (
 	"testing"
+
+	"mock-my-mta/email"
 )
 
-const email = `From: sender@example.com
+const testEmail = `From: sender@example.com
 To: recipient1@example.com, recipient2@example.com
 Subject: Subject
 
 Body`
 
 func TestEmailMatch(t *testing.T) {
-	email, err := Parse([]byte(email))
+	email, err := email.Parse([]byte(testEmail))
 	if err != nil {
 		t.Fatalf("cannot create email: %v", err)
 	}
@@ -92,7 +94,7 @@ func TestEmailMatch(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := email.Match(test.option, test.value)
+			result := matchEmailData(email, test.option, test.value)
 			if result != test.expected {
 				t.Errorf("Expected match result %v, but got %v (test=%q)", test.expected, result, test.name)
 			}

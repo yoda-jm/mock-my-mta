@@ -4,12 +4,10 @@ import (
 	"sort"
 
 	"github.com/google/uuid"
-
-	"mock-my-mta/email"
 )
 
 // defaultSearch is performing a search by only using the physical storage without using the Find method of the storage.
-func defaultSearch(physicalStorage PhysicalLayer, matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+func defaultSearch(physicalStorage PhysicalLayer, matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
 	ids, err := physicalStorage.List()
 	if err != nil {
 		return nil, err
@@ -21,7 +19,7 @@ func defaultSearch(physicalStorage PhysicalLayer, matchOptions email.MatchOption
 		if err != nil {
 			return nil, err
 		}
-		if emailData.Email.Match(matchOptions, value) {
+		if matchEmailData(emailData.Email, matchOptions, value) {
 			pairs = append(pairs, pair{uuid: id, fieldValue: getSortField(sortOptions.Field, *emailData)})
 		}
 	}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"mock-my-mta/email"
 	"mock-my-mta/log"
 )
 
@@ -32,7 +31,7 @@ func (mmm *mmmPhysicalStorage) Delete(id uuid.UUID) error {
 }
 
 // Find implements PhysicalLayer.
-func (mmm *mmmPhysicalStorage) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+func (mmm *mmmPhysicalStorage) Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
 	return defaultSearch(mmm, matchOptions, sortOptions, value)
 }
 
@@ -115,7 +114,7 @@ func (mmm *mmmPhysicalStorage) Read(id uuid.UUID) (*EmailData, error) {
 
 // Write implements PhysicalLayer.
 func (mmm *mmmPhysicalStorage) Write(emailData *EmailData) error {
-	data, err := json.Marshal(*emailData)
+	data, err := json.MarshalIndent(*emailData, "", "  ")
 	if err != nil {
 		return err
 	}

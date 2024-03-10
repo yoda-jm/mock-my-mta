@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -33,6 +34,14 @@ type EngineConfig struct {
 	Storages []EngineLayerConfig
 }
 
+func ParseEngineConfig(config []byte) (EngineConfig, error) {
+	var engineConfig EngineConfig
+	if err := json.Unmarshal(config, &engineConfig); err != nil {
+		return EngineConfig{}, err
+	}
+	return engineConfig, nil
+}
+
 func NewEngine(config EngineConfig) (*Engine, error) {
 	engine := &Engine{}
 	// construct storages
@@ -40,6 +49,12 @@ func NewEngine(config EngineConfig) (*Engine, error) {
 		switch storage.Type {
 		case "MEMORY":
 			physical, err := newMemoryStorage()
+			if err != nil {
+				return nil, err
+			}
+			engine.storages = append(engine.storages, physical)
+		case "SQLITE":
+			physical, err := newSqliteStorage()
 			if err != nil {
 				return nil, err
 			}
@@ -115,7 +130,7 @@ func (e *Engine) Set(message []byte) error {
 }
 
 // Find implements Storage.
-func (e *Engine) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+func (e *Engine) Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
 	for _, storage := range e.storages {
 		ids, err := storage.Find(matchOptions, sortOptions, value)
 		if err != nil {

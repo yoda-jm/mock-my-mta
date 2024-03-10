@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"mock-my-mta/email"
 	"mock-my-mta/log"
 	"mock-my-mta/storage"
 )
@@ -17,7 +16,7 @@ func testFind(store storage.Storage) {
 		}
 		searchPattern := "Email 1"
 		log.Logf(log.DEBUG, "searching for emails with subject %q", searchPattern)
-		mo := email.MatchOption{Field: email.MatchSubjectField, Type: email.ExactMatch, CaseSensitive: true}
+		mo := storage.MatchOption{Field: storage.MatchSubjectField, Type: storage.ExactMatch, CaseSensitive: true}
 		foundEmails, err := store.Find(mo, so, searchPattern)
 		if err != nil {
 			log.Logf(log.WARNING, "error while searching for emails: %v", err)

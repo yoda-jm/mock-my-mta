@@ -24,10 +24,18 @@ func (e ErrNotFound) Error() string {
 	return fmt.Sprintf("email with ID %v not found", e.id)
 }
 
+type ErrMissingParameter struct {
+	parameter string
+}
+
+func (e ErrMissingParameter) Error() string {
+	return fmt.Sprintf("missing parameter %v", e.parameter)
+}
+
 type Storage interface {
 	Get(id uuid.UUID) (*EmailData, error)
 	Set(message []byte) error
-	Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error)
+	Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error)
 	Delete(id uuid.UUID) error
 }
 
@@ -37,11 +45,11 @@ type PhysicalLayer interface {
 
 	Read(uuid.UUID) (*EmailData, error)
 	Write(*EmailData) error
-	Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error)
+	Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error)
 	Delete(uuid.UUID) error
 }
 
 // GetAll retrieves all UUIDs of email data in the storage sorted according to sorting options.
 func GetAll(storage Storage, sortOptions SortOption) ([]uuid.UUID, error) {
-	return storage.Find(email.MatchOption{Type: email.AllMatch}, sortOptions, "")
+	return storage.Find(MatchOption{Type: AllMatch}, sortOptions, "")
 }

@@ -127,9 +127,9 @@ func (s *httpServer) getEmails(w http.ResponseWriter, r *http.Request) {
 		Field:     sort,
 		Direction: order,
 	}
-	mo := email.MatchOption{
-		Field:         email.MatchNoField,
-		Type:          email.ExactMatch,
+	mo := storage.MatchOption{
+		Field:         storage.MatchNoField,
+		Type:          storage.ExactMatch,
 		CaseSensitive: true,
 		HasAttachment: false,
 	}

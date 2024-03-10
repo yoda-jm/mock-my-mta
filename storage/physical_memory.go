@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"mock-my-mta/email"
 	"mock-my-mta/log"
 )
 
@@ -35,7 +34,7 @@ func (mf *memoryPhysicalStorage) Delete(id uuid.UUID) error {
 }
 
 // Find implements PhysicalLayer.
-func (mf *memoryPhysicalStorage) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+func (mf *memoryPhysicalStorage) Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
 	mf.mutex.RLock()
 	defer mf.mutex.RUnlock()
 
@@ -43,7 +42,7 @@ func (mf *memoryPhysicalStorage) Find(matchOptions email.MatchOption, sortOption
 	// to construct the list of all UUIDs in the storage.
 	pairs := make([]pair, 0, len(mf.data))
 	mf.walk(func(id uuid.UUID) {
-		if emailData, ok := mf.data[id]; ok && emailData.Email.Match(matchOptions, value) {
+		if emailData, ok := mf.data[id]; ok && matchEmailData(emailData.Email, matchOptions, value) {
 			pairs = append(pairs, pair{uuid: id, fieldValue: getSortField(sortOptions.Field, mf.data[id])})
 		}
 	})
@@ -66,7 +65,7 @@ func (mf *memoryPhysicalStorage) List() ([]uuid.UUID, error) {
 
 // Load implements PhysicalLayer.
 func (mf *memoryPhysicalStorage) Populate(underlying PhysicalLayer, parameters map[string]string) error {
-	log.Logf(log.INFO, "populating memory finder layer")
+	log.Logf(log.INFO, "populating memory layer")
 	if underlying != nil {
 		ids, err := underlying.List()
 		if err != nil {

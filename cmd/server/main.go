@@ -10,6 +10,28 @@ import (
 	"mock-my-mta/storage"
 )
 
+const defaultEngineConfig = `
+{
+	"storages": [
+		{
+			"type": "SQLITE",
+			"parameters": {
+				"database": "mock-my-mta.db"
+			}
+		},
+		{
+			"type": "MEMORY"
+		},
+		{
+			"type": "MMM",
+			"parameters": {
+				"folder": "mock-my-mta"
+			}
+		}
+	]
+}
+`
+
 func main() {
 	// Parse command-line parameters
 	var smtpAddress, httpAddress, storageDir, testDataDir, relayAddress string
@@ -25,18 +47,9 @@ func main() {
 	}
 
 	// Create a new storage instance
-	engineConfig := storage.EngineConfig{
-		Storages: []storage.EngineLayerConfig{
-			{
-				Type: "MEMORY",
-			},
-			{
-				Type: "MMM",
-				Parameters: map[string]string{
-					"folder": storageDir,
-				},
-			},
-		},
+	engineConfig, err := storage.ParseEngineConfig([]byte(defaultEngineConfig))
+	if err != nil {
+		log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
 	}
 	store, err := storage.NewEngine(engineConfig)
 	if err != nil {
