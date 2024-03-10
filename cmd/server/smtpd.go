@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/smtp"
+
 	"github.com/chrj/smtpd"
 
 	"mock-my-mta/log"
@@ -8,16 +10,18 @@ import (
 )
 
 type smtpServer struct {
-	server *smtpd.Server
-	addr   string
+	server       *smtpd.Server
+	addr         string
+	relayAddress string
 
-	store *storage.Storage
+	store storage.Storage
 }
 
-func newSmtpServer(addr string, store *storage.Storage) *smtpServer {
+func newSmtpServer(addr string, store storage.Storage, relayAddress string) *smtpServer {
 	s := &smtpServer{
-		addr:  addr,
-		store: store,
+		addr:         addr,
+		relayAddress: relayAddress,
+		store:        store,
 	}
 	s.server = &smtpd.Server{
 		WelcomeMessage:    "FAKE SMTPD GO",
@@ -55,8 +59,6 @@ func (s *smtpServer) heloChecker(peer smtpd.Peer, name string) error {
 	return nil
 }
 
-var count = 0
-
 func (s *smtpServer) connectionChecker(peer smtpd.Peer) error {
 	log.Logf(log.DEBUG, "new connection from %v", peer.Addr)
 	return nil
@@ -69,6 +71,12 @@ func (s *smtpServer) handler(peer smtpd.Peer, env smtpd.Envelope) error {
 	err := s.store.Set(env.Data)
 	if err != nil {
 		return err
+	}
+	if s.relayAddress != "" {
+		err = smtp.SendMail(s.relayAddress, nil, env.Sender, env.Recipients, env.Data)
+		if err != nil {
+			log.Logf(log.ERROR, "failed to relay message: %v", err)
+		}
 	}
 	return nil
 }

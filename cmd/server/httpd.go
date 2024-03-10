@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,10 +21,10 @@ type httpServer struct {
 	server *http.Server
 	addr   string
 
-	store *storage.Storage
+	store storage.Storage
 }
 
-func newHttpServer(addr string, store *storage.Storage) *httpServer {
+func newHttpServer(addr string, store storage.Storage) *httpServer {
 	s := &httpServer{
 		addr:  addr,
 		store: store,
@@ -66,21 +67,14 @@ func newHttpServer(addr string, store *storage.Storage) *httpServer {
 	return s
 }
 
-func homePageHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log.Logf(log.DEBUG, "serving index (uri=%v) from %v", r.RequestURI, r.RemoteAddr)
-		http.ServeFile(w, r, "static/index.html")
-	}
-}
-
 func (s *httpServer) Start() error {
-	log.Logf(log.INFO, "starting smtp server on %v", s.addr)
+	log.Logf(log.INFO, "starting http server on %v", s.addr)
 	return s.server.ListenAndServe()
 }
 
 func (s *httpServer) Stop() error {
-	log.Logf(log.INFO, "stopping smtp server...", s.addr)
-	return s.server.Shutdown(nil)
+	log.Logf(log.INFO, "stopping http server...", s.addr)
+	return s.server.Shutdown(context.TODO())
 }
 
 func newJsonEncoder(w http.ResponseWriter) *json.Encoder {
@@ -140,12 +134,24 @@ func (s *httpServer) getEmails(w http.ResponseWriter, r *http.Request) {
 		HasAttachment: false,
 	}
 	searchPattern := ""
-	uuids := s.store.Find(mo, so, searchPattern)
+	uuids, err := s.store.Find(mo, so, searchPattern)
+	if err != nil {
+		// return 500
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		newJsonEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("internal server error: %v", err)})
+		return
+
+	}
 	var emails []EmailJson
 	for _, uuid := range uuids {
-		emailData, found := s.store.Get(uuid)
-		if !found {
-			continue
+		emailData, err := s.store.Get(uuid)
+		if err != nil {
+			// return 500
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			newJsonEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("internal server error: %v", err)})
+			return
 		}
 		emails = append(emails, NewEmailJson(emailData))
 	}
@@ -163,9 +169,9 @@ func (s *httpServer) getEmailByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retrieve the email data from the data store
-	emailData, found := s.store.Get(id)
-	if !found {
-		http.Error(w, "Email not found", http.StatusNotFound)
+	emailData, err := s.store.Get(id)
+	if err != nil {
+		http.Error(w, "Email not found", http.StatusBadRequest)
 		return
 	}
 
@@ -189,7 +195,6 @@ func (s *httpServer) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Email not found", http.StatusBadRequest)
 		return
 	}
-	return
 }
 
 type AttachmentJson struct {
@@ -206,10 +211,10 @@ func NewAttachmentJson(attachment *email.Attachment) AttachmentJson {
 	}
 }
 
-func getAttachment(store *storage.Storage, emailID, attachmentID uuid.UUID) (*email.Attachment, error) {
-	emailData, found := store.Get(emailID)
-	if !found {
-		return nil, fmt.Errorf("cannot find email %q", emailID)
+func getAttachment(store storage.Storage, emailID, attachmentID uuid.UUID) (*email.Attachment, error) {
+	emailData, err := store.Get(emailID)
+	if err != nil {
+		return nil, fmt.Errorf("cannot find email %q: %v", emailID, err)
 	}
 	attachment, found := emailData.Email.GetAttachment(attachmentID)
 	if !found {
@@ -218,10 +223,10 @@ func getAttachment(store *storage.Storage, emailID, attachmentID uuid.UUID) (*em
 	return attachment, nil
 }
 
-func getBody(store *storage.Storage, emailID uuid.UUID, bodyVersion email.EmailVersionTypeEnum) (string, error) {
-	emailData, found := store.Get(emailID)
-	if !found {
-		return "", fmt.Errorf("cannot find email %q", emailID)
+func getBody(store storage.Storage, emailID uuid.UUID, bodyVersion email.EmailVersionTypeEnum) (string, error) {
+	emailData, err := store.Get(emailID)
+	if err != nil {
+		return "", fmt.Errorf("cannot find email %q: %v", emailID, err)
 	}
 	return emailData.Email.GetBody(bodyVersion)
 }
@@ -260,8 +265,8 @@ func (s *httpServer) getAttachments(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid email ID", http.StatusBadRequest)
 		return
 	}
-	emailData, found := s.store.Get(emailID)
-	if !found {
+	emailData, err := s.store.Get(emailID)
+	if err != nil {
 		http.Error(w, "cannot find email", http.StatusBadRequest)
 	}
 	attachmentIDs := emailData.Email.GetAttachments()

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,11 +14,12 @@ import (
 
 func main() {
 	// Parse command-line parameters
-	var smtpAddress, httpAddress, storageDir, testDataDir string
+	var smtpAddress, httpAddress, storageDir, testDataDir, relayAddress string
 	flag.StringVar(&smtpAddress, "smtp-addr", ":8025", "Address of the SMTP server")
 	flag.StringVar(&httpAddress, "http-addr", ":8080", "Address of the HTTP server")
 	flag.StringVar(&storageDir, "storage", "", "Path to the storage directory")
 	flag.StringVar(&testDataDir, "test-data", "", "Folder containing test data emails")
+	flag.StringVar(&relayAddress, "relay-addr", "", "Address of the SMTP relay server")
 	flag.Parse()
 
 	if storageDir == "" {
@@ -27,7 +27,20 @@ func main() {
 	}
 
 	// Create a new storage instance
-	store, err := storage.NewStorage(storageDir)
+	engineConfig := storage.EngineConfig{
+		Storages: []storage.EngineLayerConfig{
+			{
+				Type: "MEMORY_FINDER",
+			},
+			{
+				Type: "MMM",
+				Parameters: map[string]string{
+					"folder": storageDir,
+				},
+			},
+		},
+	}
+	store, err := storage.NewEngine(engineConfig)
 	if err != nil {
 		log.Logf(log.FATAL, "error: failed to create storage: %v", err)
 	}
@@ -37,7 +50,11 @@ func main() {
 			Field:     storage.SortDateField,
 			Direction: storage.Descending,
 		}
-		if len(store.GetAll(so)) > 0 {
+		ids, err := storage.GetAll(store, so)
+		if err != nil {
+			log.Logf(log.FATAL, "error: cannot load test data into a non-empty storage")
+		}
+		if len(ids) > 0 {
 			log.Logf(log.FATAL, "error: cannot load test data into a non-empty storage")
 		}
 		err = loadTestData(store, testDataDir)
@@ -55,7 +72,7 @@ func main() {
 	}
 
 	// start smtp server
-	startSmtpServer(smtpAddress, store)
+	startSmtpServer(smtpAddress, store, relayAddress)
 	// start http server
 	startHttpServer(httpAddress, store)
 
@@ -68,7 +85,7 @@ func main() {
 	// FIXME: shutdown servers
 }
 
-func testFind(store *storage.Storage) {
+func testFind(store storage.Storage) {
 	for _, direction := range []storage.SortType{storage.Ascending, storage.Descending} {
 		so := storage.SortOption{
 			Field:     storage.SortDateField,
@@ -77,7 +94,11 @@ func testFind(store *storage.Storage) {
 		searchPattern := "Email 1"
 		log.Logf(log.DEBUG, "searching for emails with subject %q", searchPattern)
 		mo := email.MatchOption{Field: email.MatchSubjectField, Type: email.ExactMatch, CaseSensitive: true}
-		foundEmails := store.Find(mo, so, searchPattern)
+		foundEmails, err := store.Find(mo, so, searchPattern)
+		if err != nil {
+			log.Logf(log.WARNING, "error while searching for emails: %v", err)
+			continue
+		}
 		log.Logf(log.DEBUG, "found %d emails", len(foundEmails))
 		for _, id := range foundEmails {
 			log.Logf(log.DEBUG, "found email with ID: %v", id)
@@ -85,7 +106,7 @@ func testFind(store *storage.Storage) {
 	}
 }
 
-func testPrintAll(store *storage.Storage) {
+func testPrintAll(store storage.Storage) {
 	for _, direction := range []storage.SortType{storage.Ascending, storage.Descending} {
 		so := storage.SortOption{
 			Field:     storage.SortDateField,
@@ -94,53 +115,55 @@ func testPrintAll(store *storage.Storage) {
 		so.Direction = direction
 		// Get email data by UUID
 		log.Logf(log.DEBUG, "getting all emails from storage")
-		uuids := store.GetAll(so)
-		if len(uuids) == 0 {
+		uuids, err := storage.GetAll(store, so)
+		if err != nil {
+			log.Logf(log.WARNING, "error while getting all emails: %v", err)
+		} else if len(uuids) == 0 {
 			log.Logf(log.DEBUG, "no UUID found in storage")
 		} else {
 			log.Logf(log.DEBUG, "found %d emails", len(uuids))
 			for _, uuid := range uuids {
-				emailData, found := store.Get(uuid)
-				if found {
-					log.Logf(log.DEBUG, "retrieved email data for UUID:%v, received at %v", emailData.ID, emailData.ReceivedTime)
-					log.Logf(log.DEBUG, "subject: %v", emailData.Email.GetSubject())
-					versions := emailData.Email.GetVersions()
-					log.Logf(log.DEBUG, "body verions count: %v", len(versions))
-					for _, version := range versions {
-						body, err := emailData.Email.GetBody(version)
-						if err != nil {
-							log.Logf(log.DEBUG, "cannot get body for version %q", version)
+				emailData, err := store.Get(uuid)
+				if err != nil {
+					log.Logf(log.WARNING, "email data not found for UUID:%v", emailData.ID)
+				}
+
+				log.Logf(log.DEBUG, "retrieved email data for UUID:%v, received at %v", emailData.ID, emailData.ReceivedTime)
+				log.Logf(log.DEBUG, "subject: %v", emailData.Email.GetSubject())
+				versions := emailData.Email.GetVersions()
+				log.Logf(log.DEBUG, "body verions count: %v", len(versions))
+				for _, version := range versions {
+					body, err := emailData.Email.GetBody(version)
+					if err != nil {
+						log.Logf(log.DEBUG, "cannot get body for version %q", version)
+					} else {
+						log.Logf(log.DEBUG, "- %q: %v bytes", version, len(body))
+					}
+				}
+				attachmentIDs := emailData.Email.GetAttachments()
+				if len(attachmentIDs) > 0 {
+					log.Logf(log.DEBUG, "%v attachments", len(attachmentIDs))
+					for _, attachmentID := range attachmentIDs {
+						attachment, found := emailData.Email.GetAttachment(attachmentID)
+						if found {
+							log.Logf(log.DEBUG, "- attachment (id=%v, type=%v, filename=%q, length=%v)", attachment.GetID(), attachment.GetMediaType(), attachment.GetFilename(), len(attachment.GetContent()))
 						} else {
-							log.Logf(log.DEBUG, "- %q: %v bytes", version, len(body))
+							log.Logf(log.DEBUG, "email attachment not found for UUID:%v", attachmentID)
 						}
 					}
-					attachmentIDs := emailData.Email.GetAttachments()
-					if len(attachmentIDs) > 0 {
-						log.Logf(log.DEBUG, "%v attachments", len(attachmentIDs))
-						for _, attachmentID := range attachmentIDs {
-							attachment, found := emailData.Email.GetAttachment(attachmentID)
-							if found {
-								log.Logf(log.DEBUG, "- attachment (id=%v, type=%v, filename=%q, length=%v)", attachment.GetID(), attachment.GetMediaType(), attachment.GetFilename(), len(attachment.GetContent()))
-							} else {
-								log.Logf(log.DEBUG, "email attachment not found for UUID:%v", attachmentID)
-							}
-						}
-					}
-				} else {
-					log.Logf(log.DEBUG, "email data not found for UUID:%v", emailData.ID)
 				}
 			}
 		}
 	}
 }
 
-func startSmtpServer(addr string, store *storage.Storage) {
-	server := newSmtpServer(addr, store)
+func startSmtpServer(addr string, store storage.Storage, relayAddress string) {
+	server := newSmtpServer(addr, store, relayAddress)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "SMTP server recovered from panic:", r)
-				startSmtpServer(addr, store) // Restart the server if panic occurs
+				startSmtpServer(addr, store, relayAddress) // Restart the server if panic occurs
 			}
 		}()
 
@@ -151,7 +174,7 @@ func startSmtpServer(addr string, store *storage.Storage) {
 	}()
 }
 
-func startHttpServer(addr string, store *storage.Storage) {
+func startHttpServer(addr string, store storage.Storage) {
 	server := newHttpServer(addr, store)
 	go func() {
 		defer func() {
@@ -168,8 +191,8 @@ func startHttpServer(addr string, store *storage.Storage) {
 	}()
 }
 
-func loadTestData(store *storage.Storage, testDataDir string) error {
-	files, err := ioutil.ReadDir(testDataDir)
+func loadTestData(store storage.Storage, testDataDir string) error {
+	files, err := os.ReadDir(testDataDir)
 	if err != nil {
 		return err
 	}
@@ -181,7 +204,7 @@ func loadTestData(store *storage.Storage, testDataDir string) error {
 
 		filePath := filepath.Join(testDataDir, file.Name())
 		log.Logf(log.INFO, "loading file %q", filePath)
-		content, err := ioutil.ReadFile(filePath)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return err
 		}

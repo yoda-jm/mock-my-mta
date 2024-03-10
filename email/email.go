@@ -294,5 +294,4 @@ func readMultipart(body []byte, boundary string) ([]multipartPart, error) {
 		}
 		parts = append(parts, multipartPart{header: p.Header, body: body})
 	}
-	return parts, nil
 }
