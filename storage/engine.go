@@ -38,8 +38,8 @@ func NewEngine(config EngineConfig) (*Engine, error) {
 	// construct storages
 	for _, storage := range config.Storages {
 		switch storage.Type {
-		case "MEMORY_FINDER":
-			physical, err := newMemoryFinderStorage()
+		case "MEMORY":
+			physical, err := newMemoryStorage()
 			if err != nil {
 				return nil, err
 			}

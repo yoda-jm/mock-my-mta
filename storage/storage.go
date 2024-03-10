@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,14 @@ type EmailData struct {
 	ID           uuid.UUID
 	ReceivedTime time.Time
 	Email        *email.Email
+}
+
+type ErrNotFound struct {
+	id uuid.UUID
+}
+
+func (e ErrNotFound) Error() string {
+	return fmt.Sprintf("email with ID %v not found", e.id)
 }
 
 type Storage interface {

@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"sort"
 	"sync"
 
 	"github.com/google/uuid"
@@ -10,24 +9,24 @@ import (
 	"mock-my-mta/log"
 )
 
-// memoryFinderPhysicalStorage is a physical storage providing
+// memoryPhysicalStorage is a physical storage providing
 // to search and sort emails in memory.
-type memoryFinderPhysicalStorage struct {
+type memoryPhysicalStorage struct {
 	mutex sync.RWMutex // protects data
 	data  map[uuid.UUID]EmailData
 }
 
-// check that the memoryFinderPhysicalStorage implements the PhysicalLayer interface
-var _ PhysicalLayer = &memoryFinderPhysicalStorage{}
+// check that the memoryPhysicalStorage implements the PhysicalLayer interface
+var _ PhysicalLayer = &memoryPhysicalStorage{}
 
-func newMemoryFinderStorage() (*memoryFinderPhysicalStorage, error) {
-	return &memoryFinderPhysicalStorage{
+func newMemoryStorage() (*memoryPhysicalStorage, error) {
+	return &memoryPhysicalStorage{
 		data: make(map[uuid.UUID]EmailData),
 	}, nil
 }
 
 // Delete implements PhysicalLayer.
-func (mf *memoryFinderPhysicalStorage) Delete(id uuid.UUID) error {
+func (mf *memoryPhysicalStorage) Delete(id uuid.UUID) error {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
@@ -36,10 +35,12 @@ func (mf *memoryFinderPhysicalStorage) Delete(id uuid.UUID) error {
 }
 
 // Find implements PhysicalLayer.
-func (mf *memoryFinderPhysicalStorage) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+func (mf *memoryPhysicalStorage) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
 	mf.mutex.RLock()
 	defer mf.mutex.RUnlock()
 
+	// custom implementation of the find method, so that we don't need
+	// to construct the list of all UUIDs in the storage.
 	pairs := make([]pair, 0, len(mf.data))
 	mf.walk(func(id uuid.UUID) {
 		if emailData, ok := mf.data[id]; ok && emailData.Email.Match(matchOptions, value) {
@@ -52,12 +53,19 @@ func (mf *memoryFinderPhysicalStorage) Find(matchOptions email.MatchOption, sort
 }
 
 // List implements PhysicalLayer.
-func (*memoryFinderPhysicalStorage) List() ([]uuid.UUID, error) {
-	return nil, unimplementedMethodInLayer{}
+func (mf *memoryPhysicalStorage) List() ([]uuid.UUID, error) {
+	mf.mutex.RLock()
+	defer mf.mutex.RUnlock()
+
+	ids := make([]uuid.UUID, 0, len(mf.data))
+	mf.walk(func(id uuid.UUID) {
+		ids = append(ids, id)
+	})
+	return ids, nil
 }
 
 // Load implements PhysicalLayer.
-func (mf *memoryFinderPhysicalStorage) Populate(underlying PhysicalLayer, parameters map[string]string) error {
+func (mf *memoryPhysicalStorage) Populate(underlying PhysicalLayer, parameters map[string]string) error {
 	log.Logf(log.INFO, "populating memory finder layer")
 	if underlying != nil {
 		ids, err := underlying.List()
@@ -76,12 +84,19 @@ func (mf *memoryFinderPhysicalStorage) Populate(underlying PhysicalLayer, parame
 }
 
 // Read implements PhysicalLayer.
-func (*memoryFinderPhysicalStorage) Read(uuid.UUID) (*EmailData, error) {
-	return nil, unimplementedMethodInLayer{}
+func (mf *memoryPhysicalStorage) Read(id uuid.UUID) (*EmailData, error) {
+	mf.mutex.RLock()
+	defer mf.mutex.RUnlock()
+
+	emailData, found := mf.data[id]
+	if !found {
+		return nil, ErrNotFound{id: id}
+	}
+	return &emailData, nil
 }
 
 // Write implements PhysicalLayer.
-func (mf *memoryFinderPhysicalStorage) Write(emailData *EmailData) error {
+func (mf *memoryPhysicalStorage) Write(emailData *EmailData) error {
 	mf.mutex.Lock()
 	defer mf.mutex.Unlock()
 
@@ -89,33 +104,11 @@ func (mf *memoryFinderPhysicalStorage) Write(emailData *EmailData) error {
 	return nil
 }
 
-type pair struct {
-	uuid       uuid.UUID
-	fieldValue string
-}
-
-func sortPairs(pairs []pair, direction SortType) {
-	sort.Slice(pairs, func(i, j int) bool {
-		if direction == Ascending {
-			return pairs[i].fieldValue < pairs[j].fieldValue
-		}
-		return pairs[i].fieldValue > pairs[j].fieldValue // For Descending
-	})
-}
-
-func pairsToIdSlice(pairs []pair) []uuid.UUID {
-	uuids := make([]uuid.UUID, 0, len(pairs))
-	for _, pair := range pairs {
-		uuids = append(uuids, pair.uuid)
-	}
-	return uuids
-}
-
 // WalkFunc defines the function signature for the walk function.
 type WalkFunc func(id uuid.UUID)
 
 // walk walks through all UUIDs in the storage and calls the walkFunc for each UUID.
-func (mf *memoryFinderPhysicalStorage) walk(walkFunc WalkFunc) {
+func (mf *memoryPhysicalStorage) walk(walkFunc WalkFunc) {
 	for id := range mf.data {
 		walkFunc(id)
 	}

@@ -32,8 +32,8 @@ func (mmm *mmmPhysicalStorage) Delete(id uuid.UUID) error {
 }
 
 // Find implements PhysicalLayer.
-func (*mmmPhysicalStorage) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
-	return nil, unimplementedMethodInLayer{}
+func (mmm *mmmPhysicalStorage) Find(matchOptions email.MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+	return defaultSearch(mmm, matchOptions, sortOptions, value)
 }
 
 // List implements PhysicalLayer.
