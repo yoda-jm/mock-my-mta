@@ -37,10 +37,19 @@ func newHttpServer(addr string, store storage.Storage) *httpServer {
 	apiRouter := r.PathPrefix("/api").Subrouter()
 
 	// Define the API routes
+	// Emails
 	apiRouter.HandleFunc("/emails", s.getEmails).Methods("GET")
-	apiRouter.HandleFunc("/emails/{id}", s.getEmailByID).Methods("GET")
-	apiRouter.HandleFunc("/emails/{id}", s.deleteEmailByID).Methods("DELETE")
+	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
+	//apiRouter.HandleFunc("/emails/{email_id}", s.patchEmailByID).Methods("PATCH")
+	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
+	//apiRouter.HandleFunc("/emails/search", s.searchEmails).Methods("GET")
+	// Folders
+	//apiRouter.HandleFunc("/folders", s.getFolders).Methods("GET")
+	//apiRouter.HandleFunc("/folders", s.createFolder).Methods("POST")
+	//apiRouter.HandleFunc("/folders/{folder_id}", s.deleteFolder).Methods("DELETE")
+	//apiRouter.HandleFunc("/folders/{folder_id}/emails", s.getEmailsByFolder).Methods("GET")
+	// Attachments
 	apiRouter.HandleFunc("/emails/{email_id}/attachments", s.getAttachments).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}", s.getAttachmentByID).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}/content", s.getAttachmentContent).Methods("GET")
@@ -162,7 +171,7 @@ func (s *httpServer) getEmails(w http.ResponseWriter, r *http.Request) {
 func (s *httpServer) getEmailByID(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID from the URL path
 	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["id"])
+	id, err := uuid.Parse(vars["email_id"])
 	if err != nil {
 		http.Error(w, "Invalid email ID", http.StatusBadRequest)
 		return
@@ -183,7 +192,7 @@ func (s *httpServer) getEmailByID(w http.ResponseWriter, r *http.Request) {
 func (s *httpServer) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID from the URL path
 	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["id"])
+	id, err := uuid.Parse(vars["email_id"])
 	if err != nil {
 		http.Error(w, "Invalid email ID", http.StatusBadRequest)
 		return
