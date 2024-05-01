@@ -1,5 +1,0 @@
-From: sender@example.com
-To: recipient2@example.com
-Subject: Email 2
-
-This is email 2.

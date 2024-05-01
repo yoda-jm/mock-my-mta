@@ -1,51 +1,38 @@
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/mail"
 	"time"
 
 	"github.com/google/uuid"
-
-	"mock-my-mta/email"
-	"mock-my-mta/log"
 )
 
 type Engine struct {
-	storages []PhysicalLayer
+	storages []Storage
 }
 
-// check that the Engine implements the Storage interface
+// Engine must implement the Storage interface
 var _ Storage = &Engine{}
 
-// unimplementedMethodInLayer type
-type unimplementedMethodInLayer struct{}
-
-func (unimplementedMethodInLayer) Error() string {
-	return "unimplemented method in layer"
+// error that say that this layer does not implement the method
+type unimplementedMethodInLayerError struct {
+	methodName    string
+	phytisalLayer string
 }
 
-type EngineLayerConfig struct {
-	Type       string
-	Parameters map[string]string
+func (e *unimplementedMethodInLayerError) Error() string {
+	return fmt.Sprintf("method %s is not implemented in layer %s", e.methodName, e.phytisalLayer)
 }
 
-type EngineConfig struct {
-	Storages []EngineLayerConfig
+func newUnimplementedMethodInLayerError(methodName string, phytisalLayer string) error {
+	return &unimplementedMethodInLayerError{methodName: methodName, phytisalLayer: phytisalLayer}
 }
 
-func ParseEngineConfig(config []byte) (EngineConfig, error) {
-	var engineConfig EngineConfig
-	if err := json.Unmarshal(config, &engineConfig); err != nil {
-		return EngineConfig{}, err
-	}
-	return engineConfig, nil
-}
-
-func NewEngine(config EngineConfig) (*Engine, error) {
+func NewEngine(storagesConfiguration []StorageLayerConfiguration) (*Engine, error) {
 	engine := &Engine{}
 	// construct storages
-	for _, storage := range config.Storages {
+	for _, storage := range storagesConfiguration {
 		switch storage.Type {
 		case "MEMORY":
 			physical, err := newMemoryStorage()
@@ -54,73 +41,63 @@ func NewEngine(config EngineConfig) (*Engine, error) {
 			}
 			engine.storages = append(engine.storages, physical)
 		case "SQLITE":
-			physical, err := newSqliteStorage()
+			databaseFilename, ok := storage.Parameters["database"]
+			if !ok {
+				return nil, fmt.Errorf("missing database parameter for SQLITE storage")
+			}
+			physical, err := newSqliteStorage(databaseFilename)
 			if err != nil {
 				return nil, err
 			}
 			engine.storages = append(engine.storages, physical)
 		case "MMM":
-			physical, err := newMMMStorage()
+			folder, ok := storage.Parameters["folder"]
+			if !ok {
+				return nil, fmt.Errorf("missing folder parameter for MMM storage")
+			}
+			physical, err := newMMMStorage(folder)
 			if err != nil {
 				return nil, err
 			}
 			engine.storages = append(engine.storages, physical)
 		default:
-			return nil, fmt.Errorf("unknown storage type")
+			return nil, fmt.Errorf("unknown storage type: %s", storage.Type)
 		}
 	}
 	// load the storages in reverse order
 	rootLayer := engine.storages[len(engine.storages)-1]
-	for i := len(engine.storages) - 1; i >= 0; i-- {
-		storage := engine.storages[i]
-		parameters := config.Storages[i].Parameters
-		if i == len(engine.storages)-1 {
-			// the root layer is the last one
-			if err := storage.Populate(nil, parameters); err != nil {
-				return nil, err
-			}
-		} else {
-			if err := storage.Populate(rootLayer, parameters); err != nil {
-				return nil, err
-			}
-		}
+	err := engine.load(rootLayer)
+	if err != nil {
+		return nil, err
 	}
 	return engine, nil
 }
 
-// Get implements Storage.
-func (e *Engine) Get(id uuid.UUID) (*EmailData, error) {
-	for _, storage := range e.storages {
-		email, err := storage.Read(id)
-		if err != nil {
-			// skip if unimplemented in the layer
-			if _, ok := err.(unimplementedMethodInLayer); ok {
-				continue
+// Load loads the storage based on the root storage
+func (e *Engine) load(rootStorage Storage) error {
+	for i := len(e.storages) - 1; i >= 0; i-- {
+		storage := e.storages[i]
+		if i == len(e.storages)-1 {
+			// the root layer is the last one
+			if err := storage.load(nil); err != nil {
+				return err
 			}
-			return nil, err
+		} else {
+			if err := storage.load(rootStorage); err != nil {
+				return err
+			}
 		}
-		return email, nil
 	}
-	return nil, fmt.Errorf("no storage layer implemented Get")
+	return nil
 }
 
-// Set implements Storage.
-func (e *Engine) Set(message []byte) error {
-	email, err := email.Parse(message)
-	if err != nil {
-		return err
-	}
-	emailData := EmailData{
-		ID:           uuid.New(),
-		ReceivedTime: time.Now(),
-		Email:        email,
-	}
-
-	log.Logf(log.INFO, "writting email %v", emailData.ID)
+// DeleteEmailByID implements Storage.
+func (e *Engine) DeleteEmailByID(emailID string) error {
 	for _, storage := range e.storages {
-		if err := storage.Write(&emailData); err != nil {
-			// skip if unimplemented in the layer
-			if _, ok := err.(unimplementedMethodInLayer); ok {
+		err := storage.DeleteEmailByID(emailID)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
 				continue
 			}
 			return err
@@ -129,29 +106,129 @@ func (e *Engine) Set(message []byte) error {
 	return nil
 }
 
-// Find implements Storage.
-func (e *Engine) Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error) {
+// GetAttachment implements Storage.
+func (e *Engine) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
 	for _, storage := range e.storages {
-		ids, err := storage.Find(matchOptions, sortOptions, value)
+		attachment, err := storage.GetAttachment(emailID, attachmentID)
 		if err != nil {
-			// skip if unimplemented in the layer
-			if _, ok := err.(unimplementedMethodInLayer); ok {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			return Attachment{}, err
+		}
+		return attachment, nil
+	}
+	return Attachment{}, fmt.Errorf("no storage layer implements GetAttachment")
+}
+
+// GetAttachments implements Storage.
+func (e *Engine) GetAttachments(emailID string) ([]AttachmentHeader, error) {
+	for _, storage := range e.storages {
+		attachments, err := storage.GetAttachments(emailID)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
 				continue
 			}
 			return nil, err
 		}
-		return ids, nil
+		return attachments, nil
 	}
-	return nil, fmt.Errorf("no storage layer implemented Find")
+	return nil, fmt.Errorf("no storage layer implements GetAttachments")
 }
 
-// Delete implements Storage.
-func (e *Engine) Delete(id uuid.UUID) error {
-	log.Logf(log.INFO, "deleting email %v", id)
+// GetBodyVersion implements Storage.
+func (e *Engine) GetBodyVersion(emailID string, version EmailVersionType) (string, error) {
 	for _, storage := range e.storages {
-		if err := storage.Delete(id); err != nil {
-			// skip if unimplemented in the layer
-			if _, ok := err.(unimplementedMethodInLayer); ok {
+		body, err := storage.GetBodyVersion(emailID, version)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			return "", err
+		}
+		return body, nil
+	}
+	return "", fmt.Errorf("no storage layer implements GetBodyVersion")
+}
+
+// GetEmailByID implements Storage.
+func (e *Engine) GetEmailByID(emailID string) (EmailHeader, error) {
+	for _, storage := range e.storages {
+		emailHeader, err := storage.GetEmailByID(emailID)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			return EmailHeader{}, err
+		}
+		return emailHeader, nil
+	}
+	return EmailHeader{}, fmt.Errorf("no storage layer implements GetEmailByID")
+}
+
+// GetMailboxes implements Storage.
+func (e *Engine) GetMailboxes() ([]Mailbox, error) {
+	for _, storage := range e.storages {
+		mailboxes, err := storage.GetMailboxes()
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			return nil, err
+		}
+		return mailboxes, nil
+	}
+	return nil, fmt.Errorf("no storage layer implements GetMailboxes")
+}
+
+// SearchEmails implements Storage.
+func (e *Engine) SearchEmails(query string, page int, pageSize int) ([]EmailHeader, int, error) {
+	for _, storage := range e.storages {
+		emailHeaders, totalMatches, err := storage.SearchEmails(query, page, pageSize)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			return nil, 0, err
+		}
+		return emailHeaders, totalMatches, nil
+	}
+	return nil, 0, fmt.Errorf("no storage layer implements SearchEmails")
+}
+
+// Set inserts a new email into the storage.
+func (e *Engine) Set(message *mail.Message) error {
+	// generate a new ID
+	emailID := uuid.New().String()
+	// if date header are not present, use the current time
+	if _, exists := message.Header["Date"]; !exists {
+		message.Header["Date"] = []string{time.Now().Format(time.RFC1123Z)}
+	}
+	// retrieve the date attribute as time.Time
+	date, err := message.Header.Date()
+	if err != nil {
+		// use current time
+		date = time.Now()
+		message.Header["Date"] = []string{date.Format(time.RFC1123Z)}
+	}
+	// prefix ID with RFC date time
+	emailID = date.Format(time.RFC3339) + "-" + emailID
+	return e.setWithID(emailID, message)
+}
+
+// setWithID inserts a new email into the storage.
+func (e *Engine) setWithID(emailID string, message *mail.Message) error {
+	for _, storage := range e.storages {
+		err := storage.setWithID(emailID, message)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
 				continue
 			}
 			return err

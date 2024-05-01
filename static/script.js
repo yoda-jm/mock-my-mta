@@ -1,351 +1,394 @@
-const pageSize = 5; // Number of items per page
+$(function () {
+    // initialize tooltips
+    $('[title]').tooltip();
+    // initialize the search
+    setSearchQuery('');
+    resetCurrentPage()
+    refreshEmailList();
 
-let currentPage = 1;
-let emailList = [];
-
-function formatDateTime(isoDateTime) {
-  const dateObj = new Date(isoDateTime);
-  return dateObj.toLocaleString('fr');
-}
-
-function getBodyVersionsIcons(id, emailBodyVersions, clickable) {
-  // body versions
-  const bodyVersions = {
-    'raw': 'fa-file-alt',
-    'txt': 'fa-font',
-    'html': 'fa-file-code',
-    'watch-html': 'fa-clock',
-    // Add your recognized body versions here
-  };
-  let bodyVersionsIcons = '';
-  for (const [bodyVersion, icon] of Object.entries(bodyVersions)) {
-    const hasBodyVersion = emailBodyVersions.includes(bodyVersion);
-    if (clickable) {
-      const iconClass = hasBodyVersion ? 'has-body-version fas ' + icon : 'fas ' + icon;
-      const iconStyle = hasBodyVersion ? 'cursor: pointer' : 'color: lightgrey';
-      bodyVersionsIcons += `<i class="${iconClass}" style="${iconStyle}" data-email-id="${id}" data-body-version="${bodyVersion}"></i> `;
-    } else {
-      const iconClass = hasBodyVersion ? 'fas ' + icon : 'fas ' + icon;
-      const iconStyle = hasBodyVersion ? '' : 'color: lightgrey';
-      bodyVersionsIcons += `<i class="${iconClass}" style="${iconStyle}"></i> `;
-    }
-  }
-  return bodyVersionsIcons;
-}
-
-// Function to render the email table
-function renderEmailTable() {
-  const tableBody = $("#emailTable tbody");
-  tableBody.empty();
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-
-  for (let i = startIndex; i < endIndex && i < emailList.length; i++) {
-    const email = emailList[i];
-
-    const attachmentIcon = email.has_attachment ? `<i class="fas fa-paperclip"></i>` : '';
-    const bodyVersionsIcons = getBodyVersionsIcons(email.id, email.body_versions, false);
-    const received_time = formatDateTime(email.received_time);
-
-    tableBody.append(`
-      <tr class="view-email" data-email-id="${email.id}">
-        <td>${email.sender}</td>
-        <td>${email.recipients.join(", ")}</td>
-        <td>${email.subject}</td>
-        <td>${received_time}</td>
-        <td style="text-align: center">${attachmentIcon}</td>
-	<td>${bodyVersionsIcons}</td>
-	<td class="trash-icon"><i class="fas fa-trash"></i></td>
-      </tr>
-    `);
-  }
-
-  $("#currentPage").text(currentPage);
-
-  // Add click event handlers for email view
-  handleViewClick();
-  handleDeleteClick()
-}
-
-// Function to update sorting icon in table header
-function updateSortIcons(sortByField, sortByOrder) {
-  $('.sortable').each(function () {
-    const field = $(this).data('sortby');
-    if (field === sortByField) {
-      if (sortByOrder === 'asc') {
-        $(this).html(`${field} <i class="fas fa-sort-up"></i>`);
-      } else {
-        $(this).html(`${field} <i class="fas fa-sort-down"></i>`);
-      }
-    } else {
-      $(this).html(`${field} <i class="fas fa-sort"></i>`);
-    }
-  });
-}
-
-// Function to fetch email body content via AJAX
-function fetchEmailBodyContent(emailId, bodyVersion) {
-  const apiUrl = `/api/emails/${emailId}/body/${bodyVersion}`;
-  $.ajax({
-    url: apiUrl,
-    type: "GET",
-    success: function (data) {
-      // Display the body content in the bodyContentDiv
-      const bodyContentDiv = $("#bodyContent");
-      // Create an iframe to display the HTML content securely
-      const iframe = $('<iframe>', {
-        sandbox: "allow-same-origin", // Allow same-origin content only (to keep it isolated)
-        css: {
-          width: "100%", // Set the width of the iframe
-          height: "500px", // Set the height of the iframe (adjust as needed)
-        },
-      });
-      bodyContentDiv.empty().append(iframe); // Replace existing content with the iframe
-
-      let content = '';
-      let contentType = 'text/html';
-      if (bodyVersion === 'html') {
-	content = data;
-      } else {
-        // Escape non-HTML content and wrap in a <pre> tag
-        content = "<pre>" + $('<div/>').text(data).html() + "</pre>";
-      }
-      // Set the content of the iframe using Blob object
-      const blob = new Blob([content], { type: contentType });
-      blobUrl = URL.createObjectURL(blob);
-
-      iframe.attr("src", blobUrl);
-      $("#bodyContentDiv").show();
-    },
-    error: function (xhr, status, error) {
-      console.error("Error fetching email body content:", error);
-    },
-  });
-}
-
-// Function to handle click event on body version icons
-function handleBodyVersionClick() {
-  $("i.has-body-version").on("click", function () {
-    const emailId = $(this).data("email-id");
-    const bodyVersion = $(this).data("body-version");
-    fetchEmailBodyContent(emailId, bodyVersion);
-  });
-}
-
-// Function to fetch email body content via AJAX
-function fetchEmailAttachments(emailId, bodyVersion) {
-  const apiUrl = `/api/emails/${emailId}/attachments`;
-  $.ajax({
-    url: apiUrl,
-    type: "GET",
-    success: function (data) {
-      const attachmentsContentDiv = $("#attachmentsContent");
-      attachmentsContentDiv.empty();
-      for (let i = 0; i < data.length; i++) {
-        const attachment = data[i];
-        attachmentsContentDiv.append(`<p>${attachment.id} ${attachment.media_type} "${attachment.filename}"<p>`);
-      }
-      $("#attachmentsContentDiv").show();
-    },
-    error: function (xhr, status, error) {
-      console.error("Error fetching email body content:", error);
-    },
-  });
-}
-
-function renderAttachments(id) {
-  const apiUrl = `/api/emails/${id}/attachments`;
-  $.ajax({
-    url: apiUrl,
-    type: "GET",
-    success: function (attachments) {
-      const attachmentsSpan = $("#attachments");
-      attachmentsSpan.empty();
-      if (attachments === null) {
-        return;
-      }
-      for (let i = 0; i < attachments.length; i++) {
-        const attachment = attachments[i];
-        attachmentsSpan.append(`
-	  <i>
-	    <a href="/api/emails/${id}/attachments/${attachment.id}/content">
-	      ${attachment.filename}
-	    <a>
-	    (${attachment.media_type}),
-	  <i>
-	`);
-      }
-    },
-    error: function (xhr, status, error) {
-      console.error("Error fetching email body content:", error);
-    },
-  });
-}
-
-function getDefaultBodyVersion(bodyVersions) {
-  if (bodyVersions.includes("html")) {
-    return "html";
-  } else if (bodyVersions.includes("txt")) {
-    return "txt";
-  } else {
-    return "raw";
-  }
-}
-
-function renderEmail(email) {
-  received_time = formatDateTime(email.received_time);
-  const emailContentDiv = $("#emailContent");
-  emailContentDiv.empty();
-  emailContentDiv.append(`
-    <p>Internal ID: <span id="currentEmail">${email.id}</span></p>
-    <p>Sender: ${email.sender}</p>
-    <p>Recipients: ${email.recipients.join(", ")}</p>
-    <p>Date: ${received_time}</p>
-    <p>Subject: ${email.subject}</p>
-    <p>Attachments: <span id="attachments"></span></p>
-    <div class="body-content" id="bodyContentDiv">
-      <h3>Body Content</h3>
-      <p>Body versions: <span id="bodyVersions"></span></p>
-      <div id="bodyContent"></div>
-    </div>
-  `);
-
-  // body versions
-  bodyVersionsIcons = getBodyVersionsIcons(email.id, email.body_versions, true);
-  $("#bodyVersions").html(bodyVersionsIcons);
-  handleBodyVersionClick();
-
-  // attachments
-  renderAttachments(email.id);
-
-  // render default body version
-  fetchEmailBodyContent(email.id, getDefaultBodyVersion(email.body_versions));
-  $("#emailContentDiv").show();
-}
-
-// Function to handle click event on an email line
-function handleViewClick() {
-  $("tr.view-email").on("click", function () {
-    const line = $(this);
-    const emailId = line.data("email-id");
-    if ($("#currentEmail") !== null && $("#currentEmail").text() == emailId) {
-    	return;
-    }
-    const table = line.parents().first();
-    for(i = 0 ; i < table.children().length ; i++) {
-      table.children().removeClass("selected-email");
-    }
-    line.addClass("selected-email");
-    const apiUrl = `/api/emails/${emailId}`;
-    $.getJSON(apiUrl, function (email) {
-      renderEmail(email);
+    $('.bi-arrow-left').click(function () {
+        displayEmailList();
     });
-  });
-}
 
-// Function to handle click event on delete
-function handleDeleteClick() {
-  $('.trash-icon').on('click', function (event) {
-    // Prevent the default behavior (like following a link)
-    event.preventDefault();
-    // Prevent the event from propagating to parent elements
-    event.stopPropagation();
-  });
-
-  // Click event for the trash icon
-  $('.trash-icon i').on('click', function (event) {
-    // Prevent the default behavior (like following a link)
-    event.preventDefault();
-    // Prevent the event from propagating to parent elements
-    event.stopPropagation();
-
-    const line = $(this).parents().first().parents().first();
-    const emailId = line.data("email-id");
-  
-    const apiUrl = `/api/emails/${emailId}`;
-    $.ajax({
-      url: apiUrl,
-      type: "DELETE",
-      success: function (data) {
-        console.log('deleted email ' + emailId);
-        fetchEmails('date', 'desc');
-      },
-      error: function (xhr, status, error) {
-        console.error("Error deleting email " + emailId + ":", error);
-      },
-    });
-  });
-
-
-}
-
-// Function to handle pagination buttons
-function handlePaginationButtons() {
-  if (currentPage === 1) {
-    $("#prevPage").addClass("disabled");
-  } else {
-    $("#prevPage").removeClass("disabled");
-  }
-  if (currentPage === Math.ceil(emailList.length / pageSize)) {
-    $("#nextPage").addClass("disabled");
-  } else {
-    $("#nextPage").removeClass("disabled");
-  }
-}
-
-// Function to fetch emails from the JSON API
-function fetchEmails(sortByField, sortByOrder) {
-  // Fetch emails with sorting criteria
-  const apiUrl = `/api/emails?sort=${sortByField}&order=${sortByOrder}`;
-  console.log("requesting: " + apiUrl);
-  $.getJSON(apiUrl, function (data) {
-    emailList = data;
-    renderEmailTable();
-    handlePaginationButtons();
-    updateSortIcons(sortByField, sortByOrder);
-  });
-}
-
-// Event listener for previous page button
-$("#prevPage").on("click", function () {
-  if (currentPage > 1) {
-    currentPage--;
-    renderEmailTable();
-    handlePaginationButtons();
-  }
-});
-
-// Event listener for next page button
-$("#nextPage").on("click", function () {
-  if (currentPage < Math.ceil(emailList.length / pageSize)) {
-    currentPage++;
-    renderEmailTable();
-    handlePaginationButtons();
-  }
-});
-
-// Event listener for sortable headers
-$('.sortable').on('click', function () {
-  const field = $(this).data('sortby');
-  const hasSortUpClass = $(this).find('i').hasClass('fa-sort-up');
-  const hasSortDownClass = $(this).find('i').hasClass('fa-sort-down');
-  const hasSortClass = $(this).find('i').hasClass('fa-sort');
-  if (hasSortUpClass) {
-    fetchEmails(field, 'desc');
-  } else if (hasSortDownClass) {
-    fetchEmails(field, 'asc');
-  } else if (hasSortClass) {
-    if (field == 'date') {
-      fetchEmails(field, 'desc');
-    } else {
-      fetchEmails(field, 'asc');
+    function displayEmailList() {
+        $('.email-view').hide();
+        $('.email-list').show();
     }
-  }
-});
 
-// Fetch the emails when the page loads
-$(document).ready(function () {
-  fetchEmails('date', 'desc');
-});
+    function displayEmailView() {
+        $('.email-list').hide();
+        $('.email-view').show();
+    }
 
+    $('.bi-x-lg').click(function () {
+        setSearchQuery('');
+        resetCurrentPage()
+        refreshEmailList();
+    });
+
+    $('.search-box i').click(function () {
+        var query = $('.search-box input').val();
+        updateSearchBoxAndRefreshEmailList(query);
+    });
+
+    $('.search-box input').keypress(function (e) {
+        if (e.which == 13) {
+            var query = $('.search-box input').val();
+            updateSearchBoxAndRefreshEmailList(query);
+        }
+    });
+
+    $('[data-toggle="collapse"]').click(function () {
+        if ($(this).find('.icon').hasClass('bi-chevron-right')) {
+            refreshMailboxes();
+            // replace with a refresh icon
+            $(this).find('.icon').toggleClass('bi-chevron-right').toggleClass('bi-chevron-down');
+            displayMailboxes();
+        } else if ($(this).find('.icon').hasClass('bi-chevron-down')) {
+            // replace with a collapse icon
+            $(this).find('.icon').toggleClass('bi-chevron-down').toggleClass('bi-chevron-right');
+            $('#mailboxList').empty();
+        }
+    });
+
+    $('#refresh').click(function () {
+        // Refresh the email list
+        console.log('Refreshing emails');
+        refreshEmailList();
+    });
+
+    $('#allEmails').click(function () {
+        // Update the search box and refresh the email list
+        console.log('Displaying all emails');
+        // set current page to 1
+        resetCurrentPage()
+        updateSearchBoxAndRefreshEmailList('');
+    });
+
+    $('#prev-page').click(function () {
+        // Decrement page number and refresh email list
+        var page = parseInt($('#page-start').text());
+        console.log('Going to previous page');
+        $('#page-start').text(page - 1);
+        refreshEmailList();
+    });
+
+    $('#next-page').click(function () {
+        // Increment page number and refresh email list
+        var page = parseInt($('#page-start').text());
+        console.log('Going to next page');
+        $('#page-start').text(page + 1);
+        refreshEmailList();
+    });
+
+    function refreshMailboxes() {
+        // Load mailboxes
+        console.log('Refreshing mailboxes');
+        // ajax call to retreive mailboxes
+        $.ajax({
+            url: '/api/mailboxes',
+            type: 'GET',
+            success: function (data) {
+                for (var i = 0; i < data.length; i++) {
+                    // Add mailbox to mailboxList, allow text to overflow
+                    var mailbox = data[i];
+                    $('#mailboxList').append(generateMaiboxListItem(mailbox));
+                }
+            },
+            error: function (error) {
+                console.log('Error retrieving mailboxes');
+                console.log(error);
+            }
+        });
+    }
+
+    function displayMailboxes() {
+        // Display mailboxes
+        console.log('Displaying mailboxes');
+        $('#mailboxList').show();
+    }
+
+    function updateSearchBoxAndRefreshEmailList(query) {
+        // Update the search box and submit the form
+        console.log('Updating search box and submitting form');
+        setSearchQuery(query);
+        resetCurrentPage()
+        refreshEmailList()
+        displayEmailList();
+    }
+
+    function refreshEmailList() {
+        query = $('.search-box input').val();
+        page = $('#page-start').text();
+        $.ajax({
+            url: '/api/emails/',
+            type: 'GET',
+            data: {
+                query: query,
+                page: page
+            },
+            success: function (data) {
+                // update the email list and pagination
+                console.log('Updating email list');
+                emails = data.emails;
+                emailList = $('.email-list .email-table tbody');
+                emailList.empty();
+                if (emails == null || emails.length == 0) {
+                    emailList.append(generateEmptyEmailListItem());
+                    updatePagination(data.pagination);
+                    return;
+                }
+                for (var i = 0; i < emails.length; i++) {
+                    var email = emails[i];
+                    emailList.append(generateEmailListItem(email));
+                }
+                updatePagination(data.pagination);
+            },
+            error: function (error) {
+                console.log('Error retrieving emails');
+                console.log(error);
+            }
+        });
+    }
+
+    function updateEmailContentHeader(email) {
+        // Update the email content header
+        console.log('Updating email content header');
+        $('.email-header').empty();
+        console.log(email);
+        $('.email-header').append($('<p>').append($('<strong>').text('ID: ')).append(email.id));
+        $('.email-header').append($('<p>').append($('<strong>').text('Date: ')).append(formatDateTime(email.date)));
+        $('.email-header').append($('<p>').append($('<strong>').text('From: ')).append(formatEmailAddress(email.from)));
+        $('.email-header').append($('<p>').append($('<strong>').text('To: ')).append(formatEmailAddresses(email.tos)));
+        $('.email-header').append($('<p>').append($('<strong>').text('CC: ')).append(formatEmailAddresses(email.ccs)));
+        $('.email-header').append($('<p>').append($('<strong>').text('Subject: ')).append(email.subject));
+    }
+
+    function updateEmailAttachments(emailId) {
+        // Update the email attachments
+        console.log('Updating email attachments');
+        $.ajax({
+            url: '/api/emails/' + emailId + '/attachments/',
+            type: 'GET',
+            success: function (data) {
+                // update the email attachments
+                console.log('Updating email attachments');
+                attachments = data;
+                attachmentList = $('.email-attachments');
+                attachmentList.empty();
+                if (attachments == null || attachments.length == 0) {
+                    return;
+                }
+                attachmentsHtml = $('<span>');
+                for (var i = 0; i < attachments.length; i++) {
+                    var attachment = attachments[i];
+                    // I have content_type, size, filename, id, coma separated links in spans on the same line
+                    var attachmentHtml = $('<span>').append($('<a>').attr('href', '/api/emails/' + emailId + '/attachments/' + attachment.id + '/content').text(attachment.filename));
+                    attachmentHtml.append(' (' + attachment.size +' bytes)');
+                    if (i < attachments.length - 1) {
+                        attachmentHtml.append(', ');
+                    }
+                    attachmentsHtml.append(attachmentHtml);
+                }
+                attachmentList.append($('<p>').append($('<strong>').text('Attachments: ')).append(attachmentsHtml));
+            }
+        });
+    }
+
+    function openShadowRootNotExisting() {
+        // Open the shadow root if it does not exist
+        const host = document.querySelectorAll('.email-content')[0];
+        let shadowRoot = host.shadowRoot;
+        if (!shadowRoot) {
+            // If no shadow root, attach it
+            shadowRoot = host.attachShadow({ mode: 'open' });
+        }
+        return shadowRoot;
+    }
+
+    function renderEmailBody(selectedBodyVersion, data) {
+        // Render the email body
+        console.log('Rendering email body ' + selectedBodyVersion + ' version');
+        $('.email-content').empty();
+        var shadowRoot = openShadowRootNotExisting();
+        // FIXME: why is the CSP not working?
+        shadowRoot.innerHTML = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">';
+        if (selectedBodyVersion == 'raw') {
+            shadowRoot.appendChild($('<pre>').text(data)[0]);
+        } else if (selectedBodyVersion == 'html') {
+            shadowRoot.innerHTML += data;
+        } else if (selectedBodyVersion == 'plain-text') {
+            shadowRoot.appendChild($('<pre>').text(data)[0]);
+        } else if (selectedBodyVersion == 'watch-html') {
+            shadowRoot.innerHTML += data;
+        }
+    }
+
+    function updateEmailBody(selectedBodyVersion, emailId) {
+        // Update the email body
+        console.log('Updating email body ' + selectedBodyVersion + ' version for email ' + emailId);
+        $.ajax({
+            url: '/api/emails/' + emailId + '/body/' + selectedBodyVersion,
+            type: 'GET',
+            success: function (data) {
+                // update the email body
+                renderEmailBody(selectedBodyVersion, data);
+            }
+        });
+    }
+
+    function pickBestBodyVersion(bodyVersions) {
+        // Pick the best body version
+        console.log('Picking best body version');
+        preferedBodyVersions = ['html', 'watch-html', 'plain-text', 'raw'];
+        for (var i = 0; i < preferedBodyVersions.length; i++) {
+            if (bodyVersions.includes(preferedBodyVersions[i])) {
+                return preferedBodyVersions[i];
+            }
+        }
+        return 'raw';
+    }
+
+    function updateEmailBodyVersions(bodyVersions, selectedBodyVersion, emailId) {
+        // Update the email body versions
+        console.log('Updating email body versions');
+        $('.email-body-versions').empty();
+        $('.email-body-versions').append($('<strong>').text('Body versions: '));
+        for (var i = 0; i < bodyVersions.length; i++) {
+            let bodyVersion = bodyVersions[i];
+            if (bodyVersion == selectedBodyVersion) {
+                $('.email-body-versions').append($('<span>').text(bodyVersion).css('font-weight', 'bold'));
+            } else {
+                $('.email-body-versions').append($('<span>').text(bodyVersion).click(function () {
+                    console.log('Switching to body version ' + bodyVersion);
+                    updateEmailBodyVersions(bodyVersions, bodyVersion, emailId);
+                    updateEmailBody(bodyVersion, emailId);
+                }));
+            }
+            if (i < bodyVersions.length - 1) {
+                $('.email-body-versions').append(', ');
+            }
+        }
+    }
+
+    function updateEmailContent(email) {
+        // Update the email content
+        console.log('Updating email content ' + email.id);
+        updateEmailContentHeader(email);
+        updateEmailAttachments(email.id);
+        selectedBodyVersion = pickBestBodyVersion(email.body_versions);
+        updateEmailBodyVersions(email.body_versions, selectedBodyVersion, email.id);
+        updateEmailBody(selectedBodyVersion, email.id);
+    }
+
+    function generateEmptyEmailListItem() {
+        // display a nice message telling the user that there are no emails, centered and colspan on the complete row
+        // with a warning icon
+        return $('<tr class="email-item">').append($('<td colspan="4">')
+            .append($('<center>')
+                .append($('<i class="bi bi-exclamation-triangle icon">'))
+                .append(' ')
+                .append($('<span>').text('No emails found'))));
+    }
+
+    function deleteEmail(emailId) {
+        // Delete the email
+        console.log('Deleting email');
+        $.ajax({
+            url: '/api/emails/' + emailId,
+            type: 'DELETE',
+            success: function (data) {
+                // refresh the email list
+                console.log('Email deleted');
+                refreshEmailList();
+                displayEmailList();
+            },
+            error: function (error) {
+                console.log('Error deleting email');
+                console.log(error);
+            }
+        });
+    }
+
+    function generateEmailListItem(email) {
+        return $('<tr class="email-item">')
+            .append($('<td>').append(formatEmailAddress(email.from)))
+            .append($('<td>').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
+            .append($('<td>').text(formatDateTime(email.date)))
+            .append($('<td>').append(
+                $('<i class="bi bi-trash icon">'))
+                .click(function () {
+                    deleteEmail(email.id);
+                })
+            )
+            .click(function () {
+                console.log('Displaying email ' + email.id);
+                updateEmailContent(email);
+                displayEmailView();
+            });
+    }
+
+    function generateMaiboxListItem(mailbox) {
+        return $('<li class="list-item">')
+            .text(mailbox.name)
+            .click(function () {
+                var query = "mailbox:" + mailbox.name;
+                // set current page to 1
+                resetCurrentPage()
+                updateSearchBoxAndRefreshEmailList(query);
+            });
+    }
+
+    function updatePagination(pagination) {
+        // Update the pagination
+        console.log('Updating pagination');
+        $('#page-start').text(pagination.current_page);
+        $('#page-total').text(pagination.total_pages);
+        $('#total-matches').text(pagination.total_matches);
+        if (pagination.is_first_page) {
+            $('#prev-page').prop('disabled', true).css('cursor', 'default');
+        } else {
+            $('#prev-page').prop('disabled', false).css('cursor', 'pointer');
+        }
+        if (pagination.is_last_page) {
+            $('#next-page').prop('disabled', true).css('cursor', 'default');
+        } else {
+            $('#next-page').prop('disabled', false).css('cursor', 'pointer');
+        }
+    }
+
+    function resetCurrentPage() {
+        $('#page-start').text(1);
+    }
+
+    function setSearchQuery(query) {
+        $('.search-box input').val(query);
+    }
+
+    function formatDateTime(isoDateTime) {
+        const dateObj = new Date(isoDateTime);
+        return dateObj.toLocaleString('fr');
+    }
+
+    function formatEmailAddress(address) {
+        if (address.name == null || address.name == '') {
+            // put address in a span
+            return $('<span>').text(address.address);
+        } else {
+            // put address in a span with a tooltip
+            return $('<span>').attr('title', address.address).text(address.name);
+        }
+    }
+
+    function formatEmailAddresses(addresses) {
+        var formattedAddresses = $('<span>');
+        for (var i = 0; i < addresses.length; i++) {
+            var address = addresses[i];
+            formattedAddresses.append(formatEmailAddress(address));
+            if (i < addresses.length - 1) {
+                formattedAddresses.append(', ');
+            }
+        }
+        return formattedAddresses;
+    }
+});

@@ -1,47 +1,102 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-  <title>Email List Table</title>
-  <!-- Add Bootstrap CSS -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <link rel="stylesheet" href="styles.css">
-  <!-- Add Font Awesome CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Interface Mockup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-  <div class="container">
-    <h1>Email List</h1>
-    <div class="d-flex justify-content-center pagination">
-      <button id="prevPage" type="button" class="btn">Previous</button>
-      <span id="currentPage">1</span>
-      <button id="nextPage" type="button" class="btn">Next</button>
-    </div>
-    <table id="emailTable">
-      <thead>
-        <tr>
-	  <th class="sortable" data-sortby="sender">Sender</th>
-          <th>Recipients</th>
-          <th class="sortable" data-sortby="subject">Subject</th>
-          <th class="sortable" data-sortby="date">Received Time</th>
-          <th></th>
-          <th></th>
-	  <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+    <div class="email-app">
+        <div class="left-pane p-3">
+            <div class="mb-3">
+                <img src="logo.png" alt="Logo" style="max-width: 100%;">
+            </div>
+            <ul class="mailboxes">
+                <li id="allEmails">All</li>
+                <li data-toggle="collapse" data-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList">
+                    Mailbox
+                    <i class="bi bi-chevron-right icon"></i>
+                </li>
+                <ul class="collapse" id="mailboxList">
+                    <!-- Dynamic mailbox entries go here -->
+                </ul>
+            </ul>
+        </div>
+        <div class="right-pane">
+            <div class="search-box">
+                <input type="text" class="form-control" placeholder="Search emails...">
+                <i class="bi bi-x-lg ms-2 icon"></i>
+                <i class="bi bi-search ms-2 icon"></i>
+            </div>
+            <div class="toolbar d-flex justify-content-between align-items-center px-3">
+                <div class="toolbar-left">
+                    <button id="refresh" class="btn">
+                        <i class="bi bi-arrow-clockwise ms-2 icon"></i>
+                    </button>
+                </div>
+                <div class="toolbar-center">
+                </div>
+                <div class="toolbar-right">
+                    <span id="email-range">
+                        Page
+                        <span id="page-start">?</span>/
+                        <span id="page-total">?</span> (
+                        <span id="total-matches">?</span> emails total)
+                    </span>
+                    <button id="prev-page" class="btn">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button id="next-page" class="btn">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
 
-  <!-- Email Content Div -->
-  <div class="container">
-    <div class="email-content" id="emailContentDiv">
-      <h1>Email view</h1>
-      <div id="emailContent"></div>
+            <div class="email-list">
+                <table class="email-table">
+                    <thead>
+                        <tr>
+                            <th>From</th>
+                            <th>Preview</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- List of emails will be fetched and populated here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="email-view">
+                <div class="d-flex justify-content-between mb-3">
+                    <i class="bi bi-arrow-left icon"></i>
+                    <i class="bi bi-trash icon"></i>
+                </div>
+                <div class="email-header">
+                    <!-- Email header goes here -->
+                </div>
+                <div class="email-attachments">
+                    <!-- List of attachments -->
+                </div>
+                <div class="email-body-versions">
+                    <!-- List of email body versions -->
+                </div>
+                <div class="email-content">
+                    <!-- Email content goes here -->
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-  <script src="script.js"></script>
+    <script src="script.js"></script>
+
 </body>
+
 </html>

@@ -7,12 +7,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
+	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
-	"mock-my-mta/email"
 	"mock-my-mta/log"
 	"mock-my-mta/storage"
 )
@@ -22,6 +21,12 @@ type httpServer struct {
 	addr   string
 
 	store storage.Storage
+}
+
+// logf is logging with a request ID and a log level
+func logf(requestID string, r *http.Request, level log.LogLevel, format string, args ...interface{}) {
+	logFormat := fmt.Sprintf("[request=%v,remote=%v]: %v", requestID, r.RemoteAddr, format)
+	log.Logf(level, logFormat, args...)
 }
 
 func newHttpServer(addr string, store storage.Storage) *httpServer {
@@ -37,22 +42,22 @@ func newHttpServer(addr string, store storage.Storage) *httpServer {
 	apiRouter := r.PathPrefix("/api").Subrouter()
 
 	// Define the API routes
+
+	// Mailboxes
+	apiRouter.HandleFunc(("/mailboxes"), s.getMailboxes).Methods("GET")
 	// Emails
-	apiRouter.HandleFunc("/emails", s.getEmails).Methods("GET")
+	apiRouter.HandleFunc("/emails/", s.getEmails).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
-	//apiRouter.HandleFunc("/emails/{email_id}", s.patchEmailByID).Methods("PATCH")
 	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
-	//apiRouter.HandleFunc("/emails/search", s.searchEmails).Methods("GET")
-	// Folders
-	//apiRouter.HandleFunc("/folders", s.getFolders).Methods("GET")
-	//apiRouter.HandleFunc("/folders", s.createFolder).Methods("POST")
-	//apiRouter.HandleFunc("/folders/{folder_id}", s.deleteFolder).Methods("DELETE")
-	//apiRouter.HandleFunc("/folders/{folder_id}/emails", s.getEmailsByFolder).Methods("GET")
 	// Attachments
-	apiRouter.HandleFunc("/emails/{email_id}/attachments", s.getAttachments).Methods("GET")
-	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}", s.getAttachmentByID).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/attachments/", s.getAttachments).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}/content", s.getAttachmentContent).Methods("GET")
+	// return error if the requested route is not found
+	apiRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		logf(generateRequestID(), r, log.INFO, "Not Found: %v", r.URL.Path)
+		http.Error(w, "Not Found", http.StatusNotFound)
+	})
 
 	// Create GUI router
 	// Serve static files from the "static" directory
@@ -76,268 +81,212 @@ func newHttpServer(addr string, store storage.Storage) *httpServer {
 	return s
 }
 
-func (s *httpServer) Start() error {
+func (s *httpServer) ListenAndServe() error {
 	log.Logf(log.INFO, "starting http server on %v", s.addr)
 	return s.server.ListenAndServe()
 }
 
-func (s *httpServer) Stop() error {
+func (s *httpServer) Shutdown() error {
 	log.Logf(log.INFO, "stopping http server...", s.addr)
 	return s.server.Shutdown(context.TODO())
 }
 
-func newJsonEncoder(w http.ResponseWriter) *json.Encoder {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	return encoder
-}
-
-type EmailJson struct {
-	ID            uuid.UUID `json:"id"`
-	Sender        string    `json:"sender"`
-	Recipents     []string  `json:"recipients"`
-	Subject       string    `json:"subject"`
-	ReceivedTime  time.Time `json:"received_time"`
-	BodyVersions  []string  `json:"body_versions"`
-	HasAttachment bool      `json:"has_attachment"`
-}
-
-func NewEmailJson(emailData *storage.EmailData) EmailJson {
-	var bodyVersions []string
-	for _, version := range emailData.Email.GetVersions() {
-		bodyVersions = append(bodyVersions, version.String())
-	}
-	return EmailJson{
-		ID:            emailData.ID,
-		Sender:        emailData.Email.GetSender(),
-		Recipents:     emailData.Email.GetRecipients(),
-		Subject:       emailData.Email.GetSubject(),
-		ReceivedTime:  emailData.ReceivedTime,
-		BodyVersions:  bodyVersions,
-		HasAttachment: len(emailData.Email.GetAttachments()) > 0,
-	}
-}
-
-func (s *httpServer) getEmails(w http.ResponseWriter, r *http.Request) {
-	sort, err := storage.ParseSortFieldEnum(r.URL.Query().Get("sort"))
+func (s *httpServer) getMailboxes(w http.ResponseWriter, r *http.Request) {
+	// Get all mailboxes
+	logf(generateRequestID(), r, log.DEBUG, "getting mailboxes")
+	mailboxes, err := s.store.GetMailboxes()
 	if err != nil {
-		sort = storage.SortDateField
-	}
-	order, err := storage.ParseSortType(r.URL.Query().Get("order"))
-	if err != nil {
-		if sort == storage.SortDateField {
-			order = storage.Descending
-		} else {
-			order = storage.Ascending
-		}
-	}
-
-	so := storage.SortOption{
-		Field:     sort,
-		Direction: order,
-	}
-	mo := storage.MatchOption{
-		Field:         storage.MatchNoField,
-		Type:          storage.ExactMatch,
-		CaseSensitive: true,
-		HasAttachment: false,
-	}
-	searchPattern := ""
-	uuids, err := s.store.Find(mo, so, searchPattern)
-	if err != nil {
-		// return 500
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		newJsonEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("internal server error: %v", err)})
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
 		return
+	}
 
-	}
-	var emails []EmailJson
-	for _, uuid := range uuids {
-		emailData, err := s.store.Get(uuid)
-		if err != nil {
-			// return 500
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			newJsonEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("internal server error: %v", err)})
-			return
-		}
-		emails = append(emails, NewEmailJson(emailData))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	newJsonEncoder(w).Encode(emails)
+	// Write the response
+	writeJSONResponse(w, mailboxes)
 }
 
 func (s *httpServer) getEmailByID(w http.ResponseWriter, r *http.Request) {
-	// Get the email ID from the URL path
+	// Get the email ID from the URL
 	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["email_id"])
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "getting email by ID: %v", emailID)
+
+	// Get the email by ID
+	email, err := s.store.GetEmailByID(emailID)
 	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
 		return
 	}
 
-	// Retrieve the email data from the data store
-	emailData, err := s.store.Get(id)
-	if err != nil {
-		http.Error(w, "Email not found", http.StatusBadRequest)
-		return
-	}
-
-	// Write the email to the response as JSON
-	w.Header().Set("Content-Type", "application/json")
-	newJsonEncoder(w).Encode(NewEmailJson(emailData))
+	// Write the response
+	writeJSONResponse(w, email)
 }
 
 func (s *httpServer) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
-	// Get the email ID from the URL path
+	// Get the email ID from the URL
 	vars := mux.Vars(r)
-	id, err := uuid.Parse(vars["email_id"])
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "deleting email by ID: %v", emailID)
+
+	// Delete the email by ID
+	err := s.store.DeleteEmailByID(emailID)
 	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
 		return
 	}
 
-	// Retrieve the email data from the data store
-	err = s.store.Delete(id)
-	if err != nil {
-		http.Error(w, "Email not found", http.StatusBadRequest)
-		return
-	}
-}
-
-type AttachmentJson struct {
-	ID        uuid.UUID `json:"id"`
-	MediaType string    `json:"media_type"`
-	Filename  string    `json:"filename"`
-}
-
-func NewAttachmentJson(attachment *email.Attachment) AttachmentJson {
-	return AttachmentJson{
-		ID:        attachment.GetID(),
-		MediaType: attachment.GetMediaType(),
-		Filename:  attachment.GetFilename(),
-	}
-}
-
-func getAttachment(store storage.Storage, emailID, attachmentID uuid.UUID) (*email.Attachment, error) {
-	emailData, err := store.Get(emailID)
-	if err != nil {
-		return nil, fmt.Errorf("cannot find email %q: %v", emailID, err)
-	}
-	attachment, found := emailData.Email.GetAttachment(attachmentID)
-	if !found {
-		return nil, fmt.Errorf("cannot find attachment %q in email %q", attachmentID, emailID)
-	}
-	return attachment, nil
-}
-
-func getBody(store storage.Storage, emailID uuid.UUID, bodyVersion email.EmailVersionTypeEnum) (string, error) {
-	emailData, err := store.Get(emailID)
-	if err != nil {
-		return "", fmt.Errorf("cannot find email %q: %v", emailID, err)
-	}
-	return emailData.Email.GetBody(bodyVersion)
+	// Write the response
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *httpServer) getBodyVersion(w http.ResponseWriter, r *http.Request) {
-	// Get the email ID from the URL path
+	// Get the email ID and body version from the URL
 	vars := mux.Vars(r)
-	emailID, err := uuid.Parse(vars["email_id"])
+	emailID := vars["email_id"]
+	versionString := vars["body_version"]
+	logf(generateRequestID(), r, log.DEBUG, "getting body version by ID: %v, version: %v", emailID, versionString)
+	version, err := storage.ParseEmailVersionType(versionString)
 	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
-		return
-	}
-	bodyVersion, err := email.ParseEmailVersionTypeEnum(vars["body_version"])
-	if err != nil {
-		http.Error(w, "Invalid body version", http.StatusBadRequest)
-		return
-	}
-
-	// Retrieve the email data from the data store
-	body, err := getBody(s.store, emailID, bodyVersion)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		message := fmt.Sprintf("Bad Request: invalid body version: %v", versionString)
+		http.Error(w, message, http.StatusBadRequest)
 		return
 	}
 
-	// Write the attachment to the response as JSON
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(body))
+	// Get the body version by ID
+	body, err := s.store.GetBodyVersion(emailID, version)
+	if err != nil {
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
+		return
+	}
+
+	// Write the response
+	writeJSONResponse(w, body)
 }
 
 func (s *httpServer) getAttachments(w http.ResponseWriter, r *http.Request) {
-	// Get the email ID from the URL path
+	// Get the email ID from the URL
 	vars := mux.Vars(r)
-	emailID, err := uuid.Parse(vars["email_id"])
-	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
-		return
-	}
-	emailData, err := s.store.Get(emailID)
-	if err != nil {
-		http.Error(w, "cannot find email", http.StatusBadRequest)
-	}
-	attachmentIDs := emailData.Email.GetAttachments()
-	var attachments []AttachmentJson
-	for _, attachmentID := range attachmentIDs {
-		attachment, found := emailData.Email.GetAttachment(attachmentID)
-		if !found {
-			continue
-		}
-		attachments = append(attachments, NewAttachmentJson(attachment))
-	}
-	w.Header().Set("Content-Type", "application/json")
-	newJsonEncoder(w).Encode(attachments)
-}
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "getting attachments by email ID: %v", emailID)
 
-func (s *httpServer) getAttachmentByID(w http.ResponseWriter, r *http.Request) {
-	// Get the email ID from the URL path
-	vars := mux.Vars(r)
-	emailID, err := uuid.Parse(vars["email_id"])
+	// Get all attachments for the specified email
+	attachments, err := s.store.GetAttachments(emailID)
 	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
-		return
-	}
-	attachmentID, err := uuid.Parse(vars["attachment_id"])
-	if err != nil {
-		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
-		return
-	}
-	// Retrieve the email data from the data store
-	attachment, err := getAttachment(s.store, emailID, attachmentID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
 		return
 	}
 
-	// Write the attachment to the response as JSON
-	w.Header().Set("Content-Type", "application/json")
-	newJsonEncoder(w).Encode(NewAttachmentJson(attachment))
+	// Write the response
+	writeJSONResponse(w, attachments)
 }
 
 func (s *httpServer) getAttachmentContent(w http.ResponseWriter, r *http.Request) {
-	// Get the email ID from the URL path
+	// Get the email ID and attachment ID from the URL
 	vars := mux.Vars(r)
-	emailID, err := uuid.Parse(vars["email_id"])
+	emailID := vars["email_id"]
+	attachmentID := vars["attachment_id"]
+	logf(generateRequestID(), r, log.DEBUG, "getting attachment content by email ID: %v, attachment ID: %v", emailID, attachmentID)
+
+	// Get the attachment content by ID
+	attachment, err := s.store.GetAttachment(emailID, attachmentID)
 	if err != nil {
-		http.Error(w, "Invalid email ID", http.StatusBadRequest)
-		return
-	}
-	attachmentID, err := uuid.Parse(vars["attachment_id"])
-	if err != nil {
-		http.Error(w, "Invalid attachment ID", http.StatusBadRequest)
-		return
-	}
-	// Retrieve the email data from the data store
-	attachment, err := getAttachment(s.store, emailID, attachmentID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
 		return
 	}
 
-	// Write the attachment to the response as JSON
-	w.Header().Set("Content-Disposition", "attachment; filename="+attachment.GetFilename())
-	w.Header().Set("Content-Type", attachment.GetMediaType())
-	w.Write(attachment.GetContent())
+	// Write the response
+	w.Header().Set("Content-Disposition", "attachment; filename="+attachment.Filename)
+	w.Header().Set("Content-Type", attachment.ContentType)
+	w.Write(attachment.Data)
+}
+
+type PaginnationResponse struct {
+	CurrentPage  int  `json:"current_page"`
+	IsFirstPage  bool `json:"is_first_page"`
+	IsLastPage   bool `json:"is_last_page"`
+	TotalPages   int  `json:"total_pages"`
+	TotalMatches int  `json:"total_matches"`
+}
+
+type SearchEmailsResponse struct {
+	Emails []storage.EmailHeader `json:"emails"`
+	// FIXME: add a nice pagination result
+	Paginnation PaginnationResponse `json:"pagination"`
+}
+
+func (s *httpServer) getEmails(w http.ResponseWriter, r *http.Request) {
+	// Get the query parameter from the URL
+	query := r.URL.Query().Get("query")
+	if query != "" {
+		logf(generateRequestID(), r, log.DEBUG, "searching emails with query: %q", query)
+	} else {
+		logf(generateRequestID(), r, log.DEBUG, "getting all emails")
+	}
+
+	// Parse the page parameters
+	page, pageSize, err := parsePageParameters(r)
+	if err != nil {
+		message := fmt.Sprintf("Bad Request: %v", err)
+		http.Error(w, message, http.StatusBadRequest)
+		return
+	}
+
+	// Perform the search
+	emailHeaders, totalMatches, err := s.store.SearchEmails(query, page, pageSize)
+	if err != nil {
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
+		return
+	}
+	isFirstPage := page == 1
+	isLastPage := (page * pageSize) >= totalMatches
+	totalPages := (totalMatches + pageSize - 1) / pageSize
+
+	// Create the response
+	searchResponse := SearchEmailsResponse{
+		Emails: emailHeaders,
+		Paginnation: PaginnationResponse{
+			CurrentPage:  page,
+			IsFirstPage:  isFirstPage,
+			IsLastPage:   isLastPage,
+			TotalPages:   totalPages,
+			TotalMatches: totalMatches,
+		},
+	}
+
+	// Write the response
+	writeJSONResponse(w, searchResponse)
+}
+
+func writeJSONResponse(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(data)
+	if err != nil {
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
+	}
+}
+
+func parsePageParameters(r *http.Request) (int, int, error) {
+	page := 1
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		var err error
+		page, err = strconv.Atoi(pageStr)
+		if err != nil || page < 1 {
+			return 0, 0, fmt.Errorf("invalid page number")
+		}
+	}
+	pageSize := 20
+
+	return page, pageSize, nil
+}
+
+// generateRequestID generates a unique request ID for each incoming request.
+func generateRequestID() string {
+	return uuid.New().String()
 }

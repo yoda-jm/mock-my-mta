@@ -1,61 +1,91 @@
-body {
-  font-family: Arial, sans-serif;
+.email-app {
+    display: flex;
+    height: 100vh;
 }
 
-.container {
-  margin: 20px;
+.left-pane {
+    width: 250px;
+    border-right: 1px solid #ccc;
 }
 
-h1 {
-  margin-bottom: 10px;
+.right-pane {
+    flex: 1;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+.mailboxes {
+    list-style: none;
+    padding: 0;
 }
 
-th, td {
-  border: 1px solid #ccc;
-  padding: 8px;
+.mailboxes li {
+    cursor: pointer;
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-th {
-  background-color: #f2f2f2;
+.mailboxes li:hover {
+    background-color: #f0f0f0;
 }
 
-.pagination {
-  margin-bottom: 10px;
-  text-align: center;
-  cursor: pointer;
+.email-list {
+    height: calc(100vh - 240px);
+    overflow-y: auto;
 }
 
-.view-email {
-  cursor: pointer !important;
+.email-table {
+    width: 100%;
 }
 
-.selected-email {
-  background: lightblue;
-  cursor: initial !important;
+.email-item {
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
 }
 
-button {
-  padding: 5px 10px;
-  margin-left: 5px;
-  margin-right: 5px;
-  cursor: pointer;
+.search-box,
+.pagination-nav {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-#currentPage {
-  padding: 5px 10px;
-  background-color: #f2f2f2;
+.email-view {
+    display: none;
+    padding: 20px;
 }
 
-.trash-icon {
-  text-align: center;
-  cursor: default;
+.email-header {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 20px;
 }
 
-.trash-icon i {
-  cursor: pointer;
+.email-attachments {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 20px;
 }
+
+.email-body-versions {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 20px;
+}
+
+.email-content {
+    padding-top: 20px;
+}
+
+.list-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    padding: 5px;
+    border-bottom: 1px solid #ccc;
+}
+
+.input-group-text {
+    border: none; /* Removes border */
+    background: transparent; /* Makes background transparent */
+}
+  

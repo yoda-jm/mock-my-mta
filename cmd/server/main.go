@@ -2,16 +2,25 @@ package main
 
 import (
 	"flag"
+	"net/mail"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"mock-my-mta/log"
 	"mock-my-mta/storage"
 )
 
-const defaultEngineConfig = `
+const defaultConfiguration = `
 {
+	"smtpd": {
+		"addr": ":8025",
+		"relay-addr": ""
+	},
+	"httpd": {
+		"addr": ":8080"
+	},
 	"storages": [
 		{
 			"type": "SQLITE",
@@ -25,67 +34,62 @@ const defaultEngineConfig = `
 		{
 			"type": "MMM",
 			"parameters": {
-				"folder": "mock-my-mta"
+				"folder": "new-data"
 			}
 		}
-	]
-}
-`
+	],
+	"logging": {
+		"level": "DEBUG"
+	}
+}`
 
 func main() {
 	// Parse command-line parameters
-	var smtpAddress, httpAddress, storageDir, testDataDir, relayAddress string
-	flag.StringVar(&smtpAddress, "smtp-addr", ":8025", "Address of the SMTP server")
-	flag.StringVar(&httpAddress, "http-addr", ":8080", "Address of the HTTP server")
-	flag.StringVar(&storageDir, "storage", "", "Path to the storage directory")
-	flag.StringVar(&testDataDir, "test-data", "", "Folder containing test data emails")
-	flag.StringVar(&relayAddress, "relay-addr", "", "Address of the SMTP relay server")
+	var initWithTestData string
+	flag.StringVar(&initWithTestData, "init-with-test-data", "", "Folder containing test data emails")
 	flag.Parse()
 
-	if storageDir == "" {
-		log.Logf(log.FATAL, "error: storage directory not provided")
-	}
-
 	// Create a new storage instance
-	engineConfig, err := storage.ParseEngineConfig([]byte(defaultEngineConfig))
+	config, err := parseConfiguration([]byte(defaultConfiguration))
 	if err != nil {
 		log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
 	}
-	store, err := storage.NewEngine(engineConfig)
+	log.SetMinimumLogLevel(log.ParseLogLevel(config.Logging.Level))
+	log.Logf(log.INFO, "starting mock-my-mta")
+	storageEngine, err := storage.NewEngine(config.Storages)
 	if err != nil {
 		log.Logf(log.FATAL, "error: failed to create storage: %v", err)
 	}
 
-	if len(testDataDir) > 0 {
-		so := storage.SortOption{
-			Field:     storage.SortDateField,
-			Direction: storage.Descending,
-		}
-		ids, err := storage.GetAll(store, so)
+	if len(initWithTestData) > 0 {
+		log.Logf(log.INFO, "loading test data from %q", initWithTestData)
+		err := loadTestData(storageEngine, initWithTestData)
 		if err != nil {
-			log.Logf(log.FATAL, "error: cannot load test data into a non-empty storage")
+			log.Logf(log.FATAL, "error: cannot load test data directory %q: %v:", initWithTestData, err)
 		}
-		if len(ids) > 0 {
-			log.Logf(log.FATAL, "error: cannot load test data into a non-empty storage")
-		}
-		err = loadTestData(store, testDataDir)
+		// browse all the test data
+		emailsHeaders, _, err := storageEngine.SearchEmails("", 1, -1)
 		if err != nil {
-			log.Logf(log.FATAL, "error: cannot load test data directory %q: %v:", testDataDir, err)
+			log.Logf(log.FATAL, "error: cannot get emails: %v", err)
 		}
-	}
-
-	const testStorage = false
-	if testStorage {
-		// Find emails with matching criteria
-		testFind(store)
-		// Print the content of the storage
-		testPrintAll(store)
+		for _, emailHeader := range emailsHeaders {
+			log.Logf(log.INFO, "email %v: %v", emailHeader.ID, emailHeader)
+			if emailHeader.HasAttachments {
+				attachments, err := storageEngine.GetAttachments(emailHeader.ID)
+				if err != nil {
+					log.Logf(log.FATAL, "error: cannot get attachments for email %v: %v", emailHeader.ID, err)
+				}
+				for _, attachment := range attachments {
+					log.Logf(log.INFO, "  attachment %v: %v", attachment.ID, attachment)
+				}
+			}
+		}
 	}
 
 	// start smtp server
-	startSmtpServer(smtpAddress, store, relayAddress)
+	startSmtpServer(config.Smtpd.Addr, storageEngine, config.Smtpd.RelayAddr)
 	// start http server
-	startHttpServer(httpAddress, store)
+	startHttpServer(config.Httpd.Addr, storageEngine)
 
 	// Set up a signal handler to gracefully shutdown the servers on QUIT/TERM signals
 	quit := make(chan os.Signal, 1)
@@ -93,20 +97,60 @@ func main() {
 
 	<-quit // Wait for the QUIT/TERM signal
 	log.Logf(log.INFO, "received QUIT/TERM signal. Shutting down servers...")
+
 	// FIXME: shutdown servers
 }
 
-func startSmtpServer(addr string, store storage.Storage, relayAddress string) {
-	server := newSmtpServer(addr, store, relayAddress)
+func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
+	// recursively find all eml files in the directory
+	var filenames []string
+	err := filepath.Walk(testDataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) == ".eml" {
+			filenames = append(filenames, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, filename := range filenames {
+		file, err := os.Open(filename)
+		if err != nil {
+			log.Logf(log.ERROR, "error: cannot read email from file %q: %v", filename, err)
+			continue
+		}
+		email, err := mail.ReadMessage(file)
+		if err != nil {
+			log.Logf(log.ERROR, "error: cannot parse email from file %q: %v", filename, err)
+			continue
+		}
+		err = storageEngine.Set(email)
+		if err != nil {
+			log.Logf(log.ERROR, "error: cannot store email from file %q: %v", filename, err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+func startSmtpServer(addr string, storageEngine *storage.Engine, relayAddress string) {
+	server := newSmtpServer(addr, storageEngine, relayAddress)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "SMTP server recovered from panic:", r)
-				startSmtpServer(addr, store, relayAddress) // Restart the server if panic occurs
+				startSmtpServer(addr, storageEngine, relayAddress) // Restart the server if panic occurs
 			}
 		}()
 
-		err := server.Start()
+		err := server.ListenAndServe()
 		if err != nil {
 			panic("SMTP server error: " + err.Error())
 		}
@@ -123,7 +167,7 @@ func startHttpServer(addr string, store storage.Storage) {
 			}
 		}()
 
-		err := server.Start()
+		err := server.ListenAndServe()
 		if err != nil {
 			panic("HTTP server error: " + err.Error())
 		}

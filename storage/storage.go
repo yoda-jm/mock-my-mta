@@ -2,54 +2,91 @@ package storage
 
 import (
 	"fmt"
+	"net/mail"
 	"time"
-
-	"github.com/google/uuid"
-
-	"mock-my-mta/email"
 )
 
-// EmailData represents the received time, UUID, and email.
-type EmailData struct {
-	ID           uuid.UUID
-	ReceivedTime time.Time
-	Email        *email.Email
-}
-
-type ErrNotFound struct {
-	id uuid.UUID
-}
-
-func (e ErrNotFound) Error() string {
-	return fmt.Sprintf("email with ID %v not found", e.id)
-}
-
-type ErrMissingParameter struct {
-	parameter string
-}
-
-func (e ErrMissingParameter) Error() string {
-	return fmt.Sprintf("missing parameter %v", e.parameter)
-}
-
+// Storage is an interface that defines the methods that a storage engine must implement.
 type Storage interface {
-	Get(id uuid.UUID) (*EmailData, error)
-	Set(message []byte) error
-	Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error)
-	Delete(id uuid.UUID) error
+	// GetMailboxes returns a list of mailboxes.
+	GetMailboxes() ([]Mailbox, error)
+
+	// GetEmailByID returns an email by ID.
+	GetEmailByID(emailID string) (EmailHeader, error)
+	// DeleteEmailByID deletes an email by ID.
+	DeleteEmailByID(emailID string) error
+	// GetBodyVersion returns the body of an email by ID and version.
+	GetBodyVersion(emailID string, version EmailVersionType) (string, error)
+
+	// GetAttachments returns a list of attachments for an email.
+	GetAttachments(emailID string) ([]AttachmentHeader, error)
+	// GetAttachment returns an attachment by ID.
+	GetAttachment(emailID string, attachmentID string) (Attachment, error)
+
+	// SearchEmails searches for emails with pagination. It also returns the total number of matches.
+	SearchEmails(query string, page, pageSize int) ([]EmailHeader, int, error)
+
+	// Load loads the storage based on the root storage
+	load(rootStorage Storage) error
+	// setWithID inserts a new email into the storage.
+	setWithID(emailID string, message *mail.Message) error
 }
 
-type PhysicalLayer interface {
-	Populate(underlying PhysicalLayer, parameters map[string]string) error
-	List() ([]uuid.UUID, error)
-
-	Read(uuid.UUID) (*EmailData, error)
-	Write(*EmailData) error
-	Find(matchOptions MatchOption, sortOptions SortOption, value string) ([]uuid.UUID, error)
-	Delete(uuid.UUID) error
+type Mailbox struct {
+	Name string `json:"name"`
 }
 
-// GetAll retrieves all UUIDs of email data in the storage sorted according to sorting options.
-func GetAll(storage Storage, sortOptions SortOption) ([]uuid.UUID, error) {
-	return storage.Find(MatchOption{Type: AllMatch}, sortOptions, "")
+type EmailAddress struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+}
+
+type EmailHeader struct {
+	ID             string         `json:"id"`
+	From           EmailAddress   `json:"from"`
+	Tos            []EmailAddress `json:"tos"`
+	CCs            []EmailAddress `json:"ccs"`
+	Subject        string         `json:"subject"`
+	Date           time.Time      `json:"date"`
+	HasAttachments bool           `json:"has_attachments"`
+	Preview        string         `json:"preview"`
+	BodyVersions   []string       `json:"body_versions"`
+}
+
+type AttachmentHeader struct {
+	ID          string `json:"id"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	Size        int    `json:"size"`
+}
+
+type Attachment struct {
+	AttachmentHeader
+	Data []byte `json:"-"`
+}
+
+// SortFieldEnum represents the available fields for sorting.
+type EmailVersionType int
+
+// Enum values for SortFieldEnum.
+const (
+	EmailVersionRaw EmailVersionType = iota
+	EmailVersionPlainText
+	EmailVersionHtml
+	EmailVersionWatchHtml
+)
+
+func ParseEmailVersionType(str string) (EmailVersionType, error) {
+	switch str {
+	case "raw":
+		return EmailVersionRaw, nil
+	case "plain-text":
+		return EmailVersionPlainText, nil
+	case "html":
+		return EmailVersionHtml, nil
+	case "watch-html":
+		return EmailVersionWatchHtml, nil
+	default:
+		return EmailVersionRaw, fmt.Errorf("cannot parse email version type %q", str)
+	}
 }

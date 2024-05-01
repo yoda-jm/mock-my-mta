@@ -1,0 +1,25 @@
+Date: Sun, 08 Sep 2013 10:38:15 +0700
+Subject: Login details for Test
+To: test@test.com
+X-PHP-Originating-Script: 0:Mail.class.php
+from: no_reply@localhost
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="38651c4450f87348fcbe1f992746a954"
+
+--38651c4450f87348fcbe1f992746a954
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+Plain text message
+
+--38651c4450f87348fcbe1f992746a954
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+Dear [realname],<br><br>
+
+You've requested to resend your login credentials for Test.<br><br>
+
+<b>HTML</b> message
+
+--38651c4450f87348fcbe1f992746a954--

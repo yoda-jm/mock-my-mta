@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"net/mail"
 	"net/smtp"
 
 	"github.com/chrj/smtpd"
@@ -14,14 +16,14 @@ type smtpServer struct {
 	addr         string
 	relayAddress string
 
-	store storage.Storage
+	storageEngine *storage.Engine
 }
 
-func newSmtpServer(addr string, store storage.Storage, relayAddress string) *smtpServer {
+func newSmtpServer(addr string, storageEngine *storage.Engine, relayAddress string) *smtpServer {
 	s := &smtpServer{
-		addr:         addr,
-		relayAddress: relayAddress,
-		store:        store,
+		addr:          addr,
+		relayAddress:  relayAddress,
+		storageEngine: storageEngine,
 	}
 	s.server = &smtpd.Server{
 		WelcomeMessage:    "FAKE SMTPD GO",
@@ -34,12 +36,12 @@ func newSmtpServer(addr string, store storage.Storage, relayAddress string) *smt
 	return s
 }
 
-func (s *smtpServer) Start() error {
+func (s *smtpServer) ListenAndServe() error {
 	log.Logf(log.INFO, "starting smtp server on %v", s.addr)
 	return s.server.ListenAndServe(s.addr)
 }
 
-func (s *smtpServer) Stop() error {
+func (s *smtpServer) Shutdown() error {
 	log.Logf(log.INFO, "stopping smtp server...", s.addr)
 	return s.server.Shutdown(true)
 }
@@ -68,7 +70,13 @@ func (s *smtpServer) handler(peer smtpd.Peer, env smtpd.Envelope) error {
 	log.Logf(log.DEBUG, "peer=%+v", peer)
 	log.Logf(log.DEBUG, "envelope=%+v", env)
 
-	err := s.store.Set(env.Data)
+	// create new byte reader from env.Data
+	br := bytes.NewReader(env.Data)
+	message, err := mail.ReadMessage(br)
+	if err != nil {
+		return err
+	}
+	err = s.storageEngine.Set(message)
 	if err != nil {
 		return err
 	}
