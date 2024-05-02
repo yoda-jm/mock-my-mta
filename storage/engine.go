@@ -9,7 +9,7 @@ import (
 )
 
 type Engine struct {
-	storages []Storage
+	storages []storageLayer
 }
 
 // Engine must implement the Storage interface
@@ -50,12 +50,12 @@ func NewEngine(storagesConfiguration []StorageLayerConfiguration) (*Engine, erro
 				return nil, err
 			}
 			engine.storages = append(engine.storages, physical)
-		case "MMM":
+		case "FILESYSTEM":
 			folder, ok := storage.Parameters["folder"]
 			if !ok {
-				return nil, fmt.Errorf("missing folder parameter for MMM storage")
+				return nil, fmt.Errorf("missing folder parameter for FILESYSTEM storage")
 			}
-			physical, err := newMMMStorage(folder)
+			physical, err := newFilesystemStorage(folder)
 			if err != nil {
 				return nil, err
 			}

@@ -32,7 +32,7 @@ const defaultConfiguration = `
 			"type": "MEMORY"
 		},
 		{
-			"type": "MMM",
+			"type": "FILESYSTEM",
 			"parameters": {
 				"folder": "new-data"
 			}

@@ -8,37 +8,35 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strings"
-	"time"
 
 	"mock-my-mta/log"
+	"mock-my-mta/storage/matcher"
 	"mock-my-mta/storage/multipart"
 )
 
-// MMMStorage is a storage engine that stores emails on the filesystem.
-type MMMStorage struct {
+// FilesystemStorage is a storage engine that stores emails on the filesystem.
+type FilesystemStorage struct {
 	folder string
 }
 
-// MMMStorage implements the Storage interface
-var _ Storage = &MMMStorage{}
+// FilesystemStorage implements the Storage interface
+var _ Storage = &FilesystemStorage{}
 
-func newMMMStorage(folder string) (*MMMStorage, error) {
+func newFilesystemStorage(folder string) (*FilesystemStorage, error) {
 	log.Logf(log.INFO, "using storage in folder %v", folder)
-	return &MMMStorage{folder: folder}, nil
+	return &FilesystemStorage{folder: folder}, nil
 }
 
 // DeleteEmailByID implements Storage.
-func (s *MMMStorage) DeleteEmailByID(emailID string) error {
+func (s *FilesystemStorage) DeleteEmailByID(emailID string) error {
 	filePath := filepath.Join(s.folder, emailID+".eml")
 	log.Logf(log.DEBUG, "deleting file %v", filePath)
 	return os.Remove(filePath)
 }
 
 // GetAttachment implements Storage.
-func (s *MMMStorage) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
+func (s *FilesystemStorage) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
 	mp, err := loadEmailFromID(s.folder, emailID)
 	if err != nil {
 		return Attachment{}, err
@@ -93,7 +91,7 @@ func (s *MMMStorage) GetAttachment(emailID string, attachmentID string) (Attachm
 }
 
 // GetAttachments implements Storage.
-func (s *MMMStorage) GetAttachments(emailID string) ([]AttachmentHeader, error) {
+func (s *FilesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, error) {
 	mp, err := loadEmailFromID(s.folder, emailID)
 	if err != nil {
 		return nil, err
@@ -119,7 +117,7 @@ func (s *MMMStorage) GetAttachments(emailID string) ([]AttachmentHeader, error) 
 }
 
 // GetBodyVersion implements Storage.
-func (s *MMMStorage) GetBodyVersion(emailID string, version EmailVersionType) (string, error) {
+func (s *FilesystemStorage) GetBodyVersion(emailID string, version EmailVersionType) (string, error) {
 	if version == EmailVersionRaw {
 		// return the raw version of the email
 		rawBody, err := getRawBody(s.folder, emailID)
@@ -145,7 +143,7 @@ func (s *MMMStorage) GetBodyVersion(emailID string, version EmailVersionType) (s
 }
 
 // GetEmailByID implements Storage.
-func (s *MMMStorage) GetEmailByID(emailID string) (EmailHeader, error) {
+func (s *FilesystemStorage) GetEmailByID(emailID string) (EmailHeader, error) {
 	multipart, err := loadEmailFromID(s.folder, emailID)
 	if err != nil {
 		return EmailHeader{}, err
@@ -155,7 +153,7 @@ func (s *MMMStorage) GetEmailByID(emailID string) (EmailHeader, error) {
 }
 
 // GetMailboxes implements Storage.
-func (s *MMMStorage) GetMailboxes() ([]Mailbox, error) {
+func (s *FilesystemStorage) GetMailboxes() ([]Mailbox, error) {
 	// list all files in the folder
 	emailIDs, err := getAllEmailIDs(s.folder)
 	if err != nil {
@@ -183,46 +181,10 @@ func (s *MMMStorage) GetMailboxes() ([]Mailbox, error) {
 	return mailboxes, nil
 }
 
-// parseQuery parses the input string into a slice of key-value pairs and plain text elements.
-func parseQuery(query string) ([]map[string]string, []string) {
-	var keyValuePairs []map[string]string
-	var plainTexts []string
-
-	// Regex pattern to extract key:value pairs and quoted/non-quoted text
-	pattern := `(\w+:[^\s"]+|"[^"]*"|\S+)`
-	re := regexp.MustCompile(pattern)
-	matches := re.FindAllString(query, -1)
-
-	for _, match := range matches {
-		if strings.Contains(match, ":") && !strings.HasPrefix(match, "\"") {
-			// Split the first occurrence of ':' to separate key and value
-			split := strings.SplitN(match, ":", 2)
-			key := split[0]
-			value := split[1]
-
-			// Check if the value is quoted and remove quotes if needed
-			if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
-				value = strings.Trim(value, "\"")
-			}
-
-			keyValuePair := make(map[string]string)
-			keyValuePair[key] = value
-			keyValuePairs = append(keyValuePairs, keyValuePair)
-		} else if strings.HasPrefix(match, "\"") && strings.HasSuffix(match, "\"") {
-			// Remove the quotes for plain text matches
-			plainTexts = append(plainTexts, strings.Trim(match, "\""))
-		} else {
-			plainTexts = append(plainTexts, match)
-		}
-	}
-
-	return keyValuePairs, plainTexts
-}
-
 // SearchEmails implements Storage.
-func (s *MMMStorage) SearchEmails(query string, page int, pageSize int) ([]EmailHeader, int, error) {
+func (s *FilesystemStorage) SearchEmails(query string, page int, pageSize int) ([]EmailHeader, int, error) {
 	// Parse the query string
-	matchers, err := extractMatchers(query)
+	matchers, err := matcher.ParseQuery(query)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -238,14 +200,7 @@ func (s *MMMStorage) SearchEmails(query string, page int, pageSize int) ([]Email
 		if err != nil {
 			return nil, 0, err
 		}
-		matchAll := true
-		for _, matcher := range matchers {
-			if !matcher.Match(multipart) {
-				matchAll = false
-				break
-			}
-		}
-		if matchAll {
+		if multipart.MatchAll(matchers) {
 			emailHeaders = append(emailHeaders, newEmailHeaderFromMultiPart(emailID, multipart))
 		}
 	}
@@ -278,87 +233,8 @@ func (s *MMMStorage) SearchEmails(query string, page int, pageSize int) ([]Email
 	return emailHeaders[start:end], totalMatches, nil
 }
 
-// extract matchers from the query
-func extractMatchers(query string) ([]multipart.MultipartMatcher, error) {
-	const LAYOUT_DATE = "2006-01-02"
-	keyValuePairs, plainTexts := parseQuery(query)
-
-	matchers := make([]multipart.MultipartMatcher, 0)
-	for _, keyValue := range keyValuePairs {
-		for key, value := range keyValue {
-			switch key {
-			case "mailbox":
-				// Search for emails in the specified mailbox
-				log.Logf(log.DEBUG, "searching for mailbox %v", value)
-				matchers = append(matchers, multipart.NewMailboxMatch(value))
-			case "has":
-				switch value {
-				case "attachment":
-					// Search for emails that have the specified attribute
-					log.Logf(log.DEBUG, "searching for emails with attachments")
-					matchers = append(matchers, multipart.NewAttachmentMatch())
-				default:
-					return nil, fmt.Errorf("unknown search attribute for 'has': %v", value)
-				}
-			case "before":
-				// search for emails with date before
-				valueDate, err := time.Parse(LAYOUT_DATE, value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid date format: %v", value)
-				}
-				log.Logf(log.DEBUG, "searching for emails before %v", value)
-				matchers = append(matchers, multipart.NewBeforeMatch(valueDate))
-			case "after":
-				// search for emails with date after
-				valueDate, err := time.Parse(LAYOUT_DATE, value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid date format: %v", value)
-				}
-				log.Logf(log.DEBUG, "searching for emails after %v", value)
-				matchers = append(matchers, multipart.NewAfterMatch(valueDate))
-			case "from":
-				// search for emails from the specified address
-				log.Logf(log.DEBUG, "searching for emails from %v", value)
-				matchers = append(matchers, multipart.NewFromMatch(value))
-			case "older_than":
-				// search for emails older than the specified duration
-				duration, err := time.ParseDuration(value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid duration format: %v", value)
-				}
-				log.Logf(log.DEBUG, "searching for emails older than %v", duration)
-				matchers = append(matchers, multipart.NewOlderThanMatch(duration))
-			case "newer_than":
-				// search for emails newer than the specified duration
-				duration, err := time.ParseDuration(value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid duration format: %v", value)
-				}
-				log.Logf(log.DEBUG, "searching for emails newer than %v", duration)
-				matchers = append(matchers, multipart.NewNewerThanMatch(duration))
-			case "subject":
-				// search for emails with the specified word in the subject
-				log.Logf(log.DEBUG, "searching for emails with subject %v", value)
-				matchers = append(matchers, multipart.NewSubjectMatch(value))
-			default:
-				return nil, fmt.Errorf("unknown search key: %v", key)
-			}
-		}
-	}
-
-	for _, plainText := range plainTexts {
-		if plainText == "" {
-			continue
-		}
-		// Search for emails that contain the plain text
-		log.Logf(log.DEBUG, "searching for plain text %q", plainText)
-		matchers = append(matchers, multipart.NewPlainTextMatch(plainText))
-	}
-	return matchers, nil
-}
-
 // Load loads the storage based on the root storage
-func (s *MMMStorage) load(rootStorage Storage) error {
+func (s *FilesystemStorage) load(rootStorage Storage) error {
 	// check that the folder exists
 	if _, err := os.Stat(s.folder); os.IsNotExist(err) {
 		// create the folder
@@ -372,7 +248,7 @@ func (s *MMMStorage) load(rootStorage Storage) error {
 }
 
 // setWithID inserts a new email into the storage.
-func (s *MMMStorage) setWithID(emailID string, message *mail.Message) error {
+func (s *FilesystemStorage) setWithID(emailID string, message *mail.Message) error {
 	log.Logf(log.INFO, "saving email %v", emailID)
 	// create the file
 	file, err := os.Create(filepath.Join(s.folder, emailID+".eml"))
@@ -441,9 +317,9 @@ func loadEmailFromID(folder, emailID string) (*multipart.Multipart, error) {
 func newEmailHeaderFromMultiPart(ID string, multipart *multipart.Multipart) EmailHeader {
 	return EmailHeader{
 		ID:             ID,
-		From:           NewEmailAddressFromAddress(multipart.GetFrom()),
-		Tos:            NewEmailAddressesFromAddresses(multipart.GetTos()),
-		CCs:            NewEmailAddressesFromAddresses(multipart.GetCCs()),
+		From:           newEmailAddressFromAddress(multipart.GetFrom()),
+		Tos:            newEmailAddressesFromAddresses(multipart.GetTos()),
+		CCs:            newEmailAddressesFromAddresses(multipart.GetCCs()),
 		Subject:        multipart.GetSubject(),
 		Date:           multipart.GetDate(),
 		HasAttachments: multipart.HasAttachments(),
@@ -452,15 +328,15 @@ func newEmailHeaderFromMultiPart(ID string, multipart *multipart.Multipart) Emai
 	}
 }
 
-func NewEmailAddressesFromAddresses(addresses []mail.Address) []EmailAddress {
+func newEmailAddressesFromAddresses(addresses []mail.Address) []EmailAddress {
 	emailAddresses := make([]EmailAddress, 0, len(addresses))
 	for _, address := range addresses {
-		emailAddresses = append(emailAddresses, NewEmailAddressFromAddress(address))
+		emailAddresses = append(emailAddresses, newEmailAddressFromAddress(address))
 	}
 	return emailAddresses
 }
 
-func NewEmailAddressFromAddress(address mail.Address) EmailAddress {
+func newEmailAddressFromAddress(address mail.Address) EmailAddress {
 	// parse the email address
 
 	return EmailAddress{
