@@ -5,48 +5,34 @@ import (
 	"strings"
 )
 
-type LeafNode struct {
+type leafNode struct {
 	headers map[string][]string
 	body    []byte
 }
 
-func (l LeafNode) GetHeaders() map[string][]string {
+// leaf node implements the node interface
+var _ node = leafNode{}
+
+func (l leafNode) getHeaders() map[string][]string {
 	return l.headers
 }
 
-func (l LeafNode) GetBody() []byte {
-	return l.body
-}
-
-func (l LeafNode) WalfLeaves(fn WalkLeavesFunc) WalkStatus {
+func (l leafNode) walfLeaves(fn walkLeavesFunc) walkStatus {
 	return fn(l)
 }
 
-func (l LeafNode) IsAttachment() bool {
+func (l leafNode) getBody() []byte {
+	return l.body
+}
+
+func (l leafNode) isAttachment() bool {
 	contentDisposition := getHeaderValue(l, "Content-Disposition")
 	return strings.HasPrefix(contentDisposition, "attachment")
 }
 
-func (l LeafNode) GetAttachmentContentType() string {
-	return getHeaderValue(l, "Content-Type")
-}
-
-func (l LeafNode) GetAttachmentFilename() string {
-	contentDisposition := getHeaderValue(l, "Content-Disposition")
-	parts := strings.Split(contentDisposition, ";")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "filename=") {
-			return strings.Trim(part[9:], "\"")
-		}
-	}
-	return ""
-}
-
-func (l LeafNode) GetDecodedBody() string {
-	contentTransferEncoding := getHeaderValue(l, "Content-Transfer-Encoding")
-	body := string(l.GetBody())
-	if contentTransferEncoding == "base64" {
+func (l leafNode) GetDecodedBody() string {
+	body := string(l.getBody())
+	if l.getContentTransferEncoding() == "base64" {
 		// decode the body
 		decoded, err := base64.StdEncoding.DecodeString(body)
 		if err == nil {
@@ -57,22 +43,18 @@ func (l LeafNode) GetDecodedBody() string {
 	return body
 }
 
-func (l LeafNode) IsPlainText() bool {
-	return strings.HasPrefix(getContentType(l.GetHeaders()), "text/plain")
+func (l leafNode) isPlainText() bool {
+	return strings.HasPrefix(getContentType(l.getHeaders()), "text/plain")
 }
 
-func (l LeafNode) IsHTML() bool {
-	return strings.HasPrefix(getContentType(l.GetHeaders()), "text/html")
+func (l leafNode) isHTML() bool {
+	return strings.HasPrefix(getContentType(l.getHeaders()), "text/html")
 }
 
-func (l LeafNode) IsWatchHTML() bool {
-	return strings.HasPrefix(getContentType(l.GetHeaders()), "text/watch-html")
+func (l leafNode) isWatchHTML() bool {
+	return strings.HasPrefix(getContentType(l.getHeaders()), "text/watch-html")
 }
 
-func (l LeafNode) GetAttachmentSize() int {
-	return len(l.body)
-}
-
-func (l LeafNode) GetContentTransferEncoding() string {
+func (l leafNode) getContentTransferEncoding() string {
 	return getHeaderValue(l, "Content-Transfer-Encoding")
 }

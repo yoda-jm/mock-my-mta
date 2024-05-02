@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bufio"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/mail"
@@ -41,50 +40,19 @@ func (s *FilesystemStorage) GetAttachment(emailID string, attachmentID string) (
 	if err != nil {
 		return Attachment{}, err
 	}
-	var attachment Attachment
-	id := 0
-	found := false
-	var attachmentLeaf multipart.LeafNode
 	log.Logf(log.DEBUG, "searching for attachment %v", attachmentID)
-	mp.WalfLeaves(func(leaf multipart.LeafNode) multipart.WalkStatus {
-		if !leaf.IsAttachment() {
-			// skip non-attachment nodes and continue
-			return multipart.ContinueWalk
-		}
-		idStr := fmt.Sprintf("%v", id)
-		if idStr != attachmentID {
-			// increment the ID and continue walking
-			id++
-			return multipart.ContinueWalk
-		}
-		found = true
-		attachmentLeaf = leaf
-		// stop walking
-		return multipart.StopWalk
-
-	})
+	attachmentNode, found := mp.GetAttachment(attachmentID)
 	if !found {
 		return Attachment{}, fmt.Errorf("attachment not found: %v", attachmentID)
 	}
-
-	data := attachmentLeaf.GetBody()
-	if attachmentLeaf.GetContentTransferEncoding() == "base64" {
-		// decode the base64 data
-		decodedData := make([]byte, 2*len(data))
-		n, err := base64.StdEncoding.Decode(decodedData, data)
-		if err != nil {
-			return Attachment{}, err
-		}
-		data = decodedData[:n]
-	}
-	attachment = Attachment{
+	attachment := Attachment{
 		AttachmentHeader: AttachmentHeader{
 			ID:          attachmentID,
-			ContentType: attachmentLeaf.GetAttachmentContentType(),
-			Filename:    attachmentLeaf.GetAttachmentFilename(),
-			Size:        attachmentLeaf.GetAttachmentSize(),
+			ContentType: attachmentNode.GetContentType(),
+			Filename:    attachmentNode.GetFilename(),
+			Size:        attachmentNode.GetSize(),
 		},
-		Data: data,
+		Data: []byte(attachmentNode.GetDecodedBody()),
 	}
 	log.Logf(log.DEBUG, "found attachment %v", attachment)
 	return attachment, nil
@@ -97,22 +65,14 @@ func (s *FilesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, 
 		return nil, err
 	}
 	var attachmentHeaders []AttachmentHeader
-	id := 0
-	mp.WalfLeaves(func(leaf multipart.LeafNode) multipart.WalkStatus {
-		if !leaf.IsAttachment() {
-			// skip non-attachment nodes and continue
-			return multipart.ContinueWalk
-		}
+	for attachmentID, leaf := range mp.GetAttachments() {
 		attachmentHeaders = append(attachmentHeaders, AttachmentHeader{
-			ID:          fmt.Sprintf("%v", id),
-			ContentType: leaf.GetAttachmentContentType(),
-			Filename:    leaf.GetAttachmentFilename(),
-			Size:        leaf.GetAttachmentSize(),
+			ID:          attachmentID,
+			ContentType: leaf.GetContentType(),
+			Filename:    leaf.GetFilename(),
+			Size:        leaf.GetSize(),
 		})
-		// increment the ID and continue walking
-		id++
-		return multipart.ContinueWalk
-	})
+	}
 	return attachmentHeaders, nil
 }
 
@@ -324,7 +284,7 @@ func newEmailHeaderFromMultiPart(ID string, multipart *multipart.Multipart) Emai
 		Date:           multipart.GetDate(),
 		HasAttachments: multipart.HasAttachments(),
 		Preview:        multipart.GetPreview(),
-		BodyVersions:   multipart.GetBodyVersions(),
+		BodyVersions:   append(multipart.GetBodyVersions(), "raw"),
 	}
 }
 

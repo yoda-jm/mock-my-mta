@@ -13,19 +13,19 @@ import (
 // WalkLeavesFunc is a function that is called for each leaf node
 // in a multipart email.
 // If the function returns false, the walk is stopped.
-type WalkLeavesFunc func(leaf LeafNode) WalkStatus
+type walkLeavesFunc func(leaf leafNode) walkStatus
 
 // enum telling if the walk should continue or stop
-type WalkStatus int
+type walkStatus int
 
 const (
-	ContinueWalk = iota
-	StopWalk
+	continueWalk = iota
+	stopWalk
 )
 
 type node interface {
-	GetHeaders() map[string][]string
-	WalfLeaves(fn WalkLeavesFunc) WalkStatus
+	getHeaders() map[string][]string
+	walfLeaves(fn walkLeavesFunc) walkStatus
 }
 
 type Multipart struct {
@@ -60,7 +60,7 @@ func parseMail(headers map[string][]string, bodyReader io.Reader) (node, error) 
 			return nil, err
 		}
 		// create a leaf node
-		return LeafNode{
+		return leafNode{
 			headers: headers,
 			body:    body,
 		}, nil
@@ -134,53 +134,93 @@ func (mp Multipart) GetDate() time.Time {
 
 func (mp Multipart) HasAttachments() bool {
 	var hasAttachments bool
-	mp.WalfLeaves(func(leaf LeafNode) WalkStatus {
+	mp.walfLeaves(func(leaf leafNode) walkStatus {
 		if strings.HasPrefix(getHeaderValue(leaf, "Content-Disposition"), "attachment") {
 			hasAttachments = true
 			// stop walking
-			return StopWalk
+			return stopWalk
 		}
 		// continue walking
-		return ContinueWalk
+		return continueWalk
 	})
 	return hasAttachments
 }
 
+func (mp Multipart) GetAttachments() map[string]AttachmentNode {
+	attachments := make(map[string]AttachmentNode)
+	i := 0
+	mp.walfLeaves(func(leaf leafNode) walkStatus {
+		if !leaf.isAttachment() {
+			// skip non-attachment leaves
+			return continueWalk
+		}
+		attachments[fmt.Sprintf("%v", i)] = AttachmentNode{leafNode: leaf}
+		i++
+		// continue walking
+		return continueWalk
+	})
+	return attachments
+}
+
+func (mp Multipart) GetAttachment(attachmentID string) (AttachmentNode, bool) {
+	var attachment AttachmentNode
+	id := 0
+	found := false
+	mp.walfLeaves(func(leaf leafNode) walkStatus {
+		if !leaf.isAttachment() {
+			// skip non-attachment nodes and continue
+			return continueWalk
+		}
+		idStr := fmt.Sprintf("%v", id)
+		if idStr != attachmentID {
+			// increment the ID and continue walking
+			id++
+			return continueWalk
+		}
+		// found the attachment
+		found = true
+		attachment = AttachmentNode{leafNode: leaf}
+		// stop walking
+		return stopWalk
+	})
+	return attachment, found
+}
+
 func (mp Multipart) GetPreview() string {
 	var preview string
-	if leaf, ok := mp.node.(LeafNode); ok {
-		if leaf.IsAttachment() {
+	if leaf, ok := mp.node.(leafNode); ok {
+		if leaf.isAttachment() {
 			// return empty preview for pure attachment emails
 			return ""
 		}
 		preview = leaf.GetDecodedBody()
 	} else {
-		mp.WalfLeaves(func(leaf LeafNode) WalkStatus {
-			if leaf.IsAttachment() {
+		mp.walfLeaves(func(leaf leafNode) walkStatus {
+			if leaf.isAttachment() {
 				// skip attachments and continue walking
-				return ContinueWalk
+				return continueWalk
 			}
-			if leaf.IsPlainText() {
+			if leaf.isPlainText() {
 				preview = leaf.GetDecodedBody()
 				preview = string(leaf.body)
-				return StopWalk
+				return stopWalk
 			}
 			// continue walking
-			return ContinueWalk
+			return continueWalk
 		})
 		if preview == "" {
 			// no plain text body found, use the html body
-			mp.WalfLeaves(func(leaf LeafNode) WalkStatus {
-				if leaf.IsAttachment() {
+			mp.walfLeaves(func(leaf leafNode) walkStatus {
+				if leaf.isAttachment() {
 					// skip attachments and continue walking
-					return ContinueWalk
+					return continueWalk
 				}
-				if leaf.IsHTML() {
+				if leaf.isHTML() {
 					preview = leaf.GetDecodedBody()
-					return StopWalk
+					return stopWalk
 				}
 				// continue walking
-				return ContinueWalk
+				return continueWalk
 			})
 		}
 	}
@@ -195,60 +235,59 @@ func (mp Multipart) GetPreview() string {
 }
 
 func (mp Multipart) GetBody(bodyVersion string) (string, error) {
-	if leaf, ok := mp.node.(LeafNode); ok {
-		if leaf.IsAttachment() {
+	if leaf, ok := mp.node.(leafNode); ok {
+		if leaf.isAttachment() {
 			// return empty body for pure attachment emails
 			return "", nil
 		}
 		return leaf.GetDecodedBody(), nil
 	}
 	var body strings.Builder
-	mp.WalfLeaves(func(leaf LeafNode) WalkStatus {
-		if bodyVersion == "plain-text" && leaf.IsPlainText() {
+	mp.walfLeaves(func(leaf leafNode) walkStatus {
+		if bodyVersion == "plain-text" && leaf.isPlainText() {
 			body.WriteString(leaf.GetDecodedBody())
-			return StopWalk
+			return stopWalk
 		}
-		if bodyVersion == "html" && leaf.IsHTML() {
+		if bodyVersion == "html" && leaf.isHTML() {
 			body.WriteString(leaf.GetDecodedBody())
-			return StopWalk
+			return stopWalk
 		}
-		if bodyVersion == "watch-html" && leaf.IsWatchHTML() {
+		if bodyVersion == "watch-html" && leaf.isWatchHTML() {
 			body.WriteString(leaf.GetDecodedBody())
-			return StopWalk
+			return stopWalk
 		}
 		// continue walking
-		return ContinueWalk
+		return continueWalk
 	})
 	return body.String(), nil
 }
 
 func (mp Multipart) GetBodyVersions() []string {
 	// if root is a leaf
-	if leaf, ok := mp.node.(LeafNode); ok {
-		if leaf.IsPlainText() {
-			return []string{"raw", "plain-text"}
-		} else if leaf.IsHTML() {
-			return []string{"raw", "html"}
-		} else if leaf.IsWatchHTML() {
-			return []string{"raw", "watch-html"}
+	if leaf, ok := mp.node.(leafNode); ok {
+		if leaf.isPlainText() {
+			return []string{"plain-text"}
+		} else if leaf.isHTML() {
+			return []string{"html"}
+		} else if leaf.isWatchHTML() {
+			return []string{"watch-html"}
 		}
-		if leaf.IsAttachment() {
+		if leaf.isAttachment() {
 			// FIXME: return text-plain version that will be empty
-			return []string{"raw"}
+			return []string{}
 		}
-		return []string{"raw", "plain-text"}
+		return []string{"plain-text"}
 	}
 	var bodyVersions []string
-	bodyVersions = append(bodyVersions, "raw")
-	mp.WalfLeaves(func(leaf LeafNode) WalkStatus {
-		if leaf.IsPlainText() {
+	mp.walfLeaves(func(leaf leafNode) walkStatus {
+		if leaf.isPlainText() {
 			bodyVersions = append(bodyVersions, "plain-text")
-		} else if leaf.IsHTML() {
+		} else if leaf.isHTML() {
 			bodyVersions = append(bodyVersions, "html")
-		} else if leaf.IsWatchHTML() {
+		} else if leaf.isWatchHTML() {
 			bodyVersions = append(bodyVersions, "watch-html")
 		}
-		return ContinueWalk
+		return continueWalk
 	})
 	return bodyVersions
 }
@@ -289,14 +328,15 @@ func parseAddress(address string) mail.Address {
 func stringIndent(n node, indent string) string {
 	// switch on the node type
 	switch node := n.(type) {
-	case LeafNode:
-		if node.IsAttachment() {
-			return fmt.Sprintf("%vattachment node (Content-Type=%v, filename=%v, size=%v)\n", indent, getContentType(node.GetHeaders()), node.GetAttachmentFilename(), node.GetAttachmentSize())
+	case leafNode:
+		if node.isAttachment() {
+			attachmentNode := AttachmentNode{leafNode: node}
+			return fmt.Sprintf("%vattachment node (Content-Type=%v, filename=%v, size=%v)\n", indent, getContentType(node.getHeaders()), attachmentNode.GetFilename(), attachmentNode.GetSize())
 		}
-		return fmt.Sprintf("%vleaf node (Content-Type=%v)\n", indent, getContentType(node.GetHeaders()))
+		return fmt.Sprintf("%vleaf node (Content-Type=%v)\n", indent, getContentType(node.getHeaders()))
 	case multipartNode:
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("%vmultipart node (Content-Type=%v)\n", indent, getContentType(node.GetHeaders())))
+		sb.WriteString(fmt.Sprintf("%vmultipart node (Content-Type=%v)\n", indent, getContentType(node.getHeaders())))
 		for _, part := range node.parts {
 			sb.WriteString(stringIndent(part, indent+"  "))
 		}
@@ -306,7 +346,7 @@ func stringIndent(n node, indent string) string {
 }
 
 func getHeaderValues(n node, key string) []string {
-	values, _ := n.GetHeaders()[key]
+	values, _ := n.getHeaders()[key]
 	return values
 }
 

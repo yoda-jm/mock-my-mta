@@ -187,13 +187,14 @@ func TestParseMultipartEmailGetAttachments(t *testing.T) {
 			t.Fatal(err)
 		}
 		// print the email
-		multipart.WalfLeaves(func(leaf LeafNode) WalkStatus {
-			if leaf.IsAttachment() {
-				t.Logf("Attachment: %v %v %v", leaf.GetAttachmentContentType(), leaf.GetAttachmentFilename(), leaf.GetAttachmentSize())
-				t.Logf("Attachment body: %v", string(leaf.GetBody()))
+		multipart.walfLeaves(func(leaf leafNode) walkStatus {
+			if leaf.isAttachment() {
+				attachmentNode := AttachmentNode{leafNode: leaf}
+				t.Logf("Attachment: %v %v %v", attachmentNode.GetContentType(), attachmentNode.GetFilename(), attachmentNode.GetSize())
+				t.Logf("Attachment body: %v", string(leaf.getBody()))
 			}
 			// continue walking
-			return ContinueWalk
+			return continueWalk
 		})
 	}
 }

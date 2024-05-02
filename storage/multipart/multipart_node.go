@@ -5,15 +5,18 @@ type multipartNode struct {
 	parts   []node
 }
 
-func (m multipartNode) GetHeaders() map[string][]string {
+// multipart node implements the node interface
+var _ node = multipartNode{}
+
+func (m multipartNode) getHeaders() map[string][]string {
 	return m.headers
 }
 
-func (m multipartNode) WalfLeaves(fn WalkLeavesFunc) WalkStatus {
+func (m multipartNode) walfLeaves(fn walkLeavesFunc) walkStatus {
 	for _, part := range m.parts {
-		if part.WalfLeaves(fn) == StopWalk {
-			return StopWalk
+		if part.walfLeaves(fn) == stopWalk {
+			return stopWalk
 		}
 	}
-	return ContinueWalk
+	return continueWalk
 }

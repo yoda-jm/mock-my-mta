@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (multipart Multipart) Match(m interface{}) bool {
+func (multipart Multipart) match(m interface{}) bool {
 	switch mt := m.(type) {
 	case matcher.MailboxMatch:
 		for _, recipent := range multipart.GetRecipients() {
@@ -61,7 +61,7 @@ func (multipart Multipart) Match(m interface{}) bool {
 
 func (multipart Multipart) MatchAll(matchers []interface{}) bool {
 	for _, m := range matchers {
-		if !multipart.Match(m) {
+		if !multipart.match(m) {
 			return false
 		}
 	}
