@@ -38,6 +38,15 @@ To install and run this project, follow these steps:
 4. Connect your browser to http://localhost:8080
 5. Configure your service sending emails to use localhost on port 8025
 
+## Additional information
+
+If you want more emails to test performance and various emails, you can put `.eml` email files
+in the folder `testdata` (it is scanned recursively when using  `--init-with-test-data testdata`).
+Here is a list of resources providing such emails:
+- https://github.com/mikel/mail/tree/master/spec/fixtures/emails
+- ENRON extract (4.5MB): https://web.archive.org/web/20110307220813/http://bailando.sims.berkeley.edu/enron/enron_with_categories.tar.gz
+- full ENRON (1.7GB): https://web.archive.org/web/20110307220813/http://www-2.cs.cmu.edu/~enron/enron_mail_030204.tar.gz
+
 ## TODOs
 
 There is still a lot of things that should be done:

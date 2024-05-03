@@ -230,7 +230,7 @@ func (mp Multipart) GetPreview() string {
 	}
 	// remove \r and \n
 	preview = strings.ReplaceAll(preview, "\r", "")
-	preview = strings.ReplaceAll(preview, "\n", "")
+	preview = strings.ReplaceAll(preview, "\n", " ")
 	return preview
 }
 
