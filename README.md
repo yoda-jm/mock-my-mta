@@ -80,3 +80,8 @@ The goal of the project is to keep the code clean and minimal but still provindi
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+## Authors
+
+This is the list of Authors:
+- Vincent Le Ligeour (https://github.com/yoda-jm)
