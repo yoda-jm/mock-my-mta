@@ -62,6 +62,8 @@ There is still a lot of things that should be done:
 - read configuration from a file (next to the in-code default one if none is given)
 - fix search syntax by duration for requesting days/months/years
 - query typeahead when possible
+- make Content-Security-Policy work when displaying email
+- automatically embed images with cid (attached to the email)
 
 ## Contributing
 
