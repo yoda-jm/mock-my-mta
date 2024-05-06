@@ -12,47 +12,30 @@ import (
 	"mock-my-mta/storage"
 )
 
-const defaultConfiguration = `
-{
-	"smtpd": {
-		"addr": ":8025",
-		"relay-addr": ""
-	},
-	"httpd": {
-		"addr": ":8080"
-	},
-	"storages": [
-		{
-			"type": "SQLITE",
-			"parameters": {
-				"database": "mock-my-mta.db"
-			}
-		},
-		{
-			"type": "MEMORY"
-		},
-		{
-			"type": "FILESYSTEM",
-			"parameters": {
-				"folder": "new-data"
-			}
-		}
-	],
-	"logging": {
-		"level": "DEBUG"
-	}
-}`
-
 func main() {
 	// Parse command-line parameters
 	var initWithTestData string
+	var configurationFile string
 	flag.StringVar(&initWithTestData, "init-with-test-data", "", "Folder containing test data emails")
+	flag.StringVar(&configurationFile, "config", "", "Configuration file")
 	flag.Parse()
 
 	// Create a new storage instance
-	config, err := parseConfiguration([]byte(defaultConfiguration))
-	if err != nil {
-		log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
+	var config Configuration
+	if len(configurationFile) > 0 {
+		var err error
+		log.Logf(log.INFO, "loading configuration from %q", configurationFile)
+		config, err = readConfigurationFile(configurationFile)
+		if err != nil {
+			log.Logf(log.FATAL, "error: failed to read engine config: %v", err)
+		}
+	} else {
+		var err error
+		log.Logf(log.INFO, "loading default configuration")
+		config, err = loadDefaultConfiguration()
+		if err != nil {
+			log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
+		}
 	}
 	log.SetMinimumLogLevel(log.ParseLogLevel(config.Logging.Level))
 	log.Logf(log.INFO, "starting mock-my-mta")
