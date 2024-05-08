@@ -58,7 +58,6 @@ There is still a lot of things that should be done:
 - add more relevant email examples, with corner cases tests
 - add more data-testid in the frontend (in order to be easy to use with tools such as playwright)
 - find a nice logo (and maybe a name) for the project
-- allow subject search to use quotes, for example: subject:"complete text with space"
 - fix search syntax by duration for requesting days/months/years
 - query typeahead when possible
 - make Content-Security-Policy work when displaying email

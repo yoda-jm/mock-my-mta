@@ -93,29 +93,28 @@ func tokenizeQuery(query string) ([]map[string]string, []string) {
 	var plainTexts []string
 
 	// Regex pattern to extract key:value pairs and quoted/non-quoted text
-	pattern := `(\w+:[^\s"]+|"[^"]*"|\S+)`
+	pattern := `(\w+:\s*"[^"]+"|\w+:\s*\S+|"[^"]+"|\S+)`
+
 	re := regexp.MustCompile(pattern)
 	matches := re.FindAllString(query, -1)
-
 	for _, match := range matches {
-		if strings.Contains(match, ":") && !strings.HasPrefix(match, "\"") {
-			// Split the first occurrence of ':' to separate key and value
-			split := strings.SplitN(match, ":", 2)
-			key := split[0]
-			value := split[1]
-
-			// Check if the value is quoted and remove quotes if needed
+		// Split only at the first occurrence of ':'
+		splitIndex := strings.Index(match, ":")
+		if splitIndex != -1 {
+			key := match[:splitIndex]
+			value := strings.TrimSpace(match[splitIndex+1:])
+			// Remove quotes if they exist
 			if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
 				value = strings.Trim(value, "\"")
 			}
-
 			keyValuePair := make(map[string]string)
 			keyValuePair[key] = value
 			keyValuePairs = append(keyValuePairs, keyValuePair)
 		} else if strings.HasPrefix(match, "\"") && strings.HasSuffix(match, "\"") {
-			// Remove the quotes for plain text matches
+			// Handle standalone quoted strings
 			plainTexts = append(plainTexts, strings.Trim(match, "\""))
 		} else {
+			// Generic word handling
 			plainTexts = append(plainTexts, match)
 		}
 	}

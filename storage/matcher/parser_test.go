@@ -143,8 +143,6 @@ func TestParseMixed(t *testing.T) {
 }
 
 func TestParseQuotedSubject(t *testing.T) {
-	// disable this test as the parser does not support quoted text
-	t.Skip()
 	// Test for subject:"important and quoted"
 	query := "subject:\"important and quoted\""
 	matchers, err := ParseQuery(query)
