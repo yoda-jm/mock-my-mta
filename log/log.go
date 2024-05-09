@@ -20,6 +20,9 @@ const (
 
 var minimumLogLevel = DEBUG
 
+var privateExitFunc = os.Exit
+var privatePrintfFunc = log.Printf
+
 func getCallerInfo() string {
 	_, file, line, ok := runtime.Caller(2) // Get the caller of the customLog function (2 levels up)
 	if ok {
@@ -50,10 +53,10 @@ func Logf(level LogLevel, format string, args ...interface{}) {
 
 	callerInfo := getCallerInfo()
 	fullMsg := fmt.Sprintf("%s: %s %s", callerInfo, logPrefix, format)
-	log.Printf(fullMsg, args...)
+	privatePrintfFunc(fullMsg, args...)
 
 	if level == FATAL {
-		os.Exit(1)
+		privateExitFunc(1)
 	}
 }
 
