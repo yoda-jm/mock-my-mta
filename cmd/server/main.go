@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"mock-my-mta/http"
 	"mock-my-mta/log"
@@ -129,7 +130,9 @@ func startSmtpServer(addr string, storageEngine *storage.Engine, relayAddress st
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Logf(log.ERROR, "SMTP server recovered from panic:", r)
+				log.Logf(log.ERROR, "SMTP server recovered from panic: %v", r)
+				// sleep for a while to avoid a tight loop
+				time.Sleep(1 * time.Second)
 				startSmtpServer(addr, storageEngine, relayAddress) // Restart the server if panic occurs
 			}
 		}()
@@ -146,7 +149,9 @@ func startHttpServer(config HttpdConfiguration, store storage.Storage) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Logf(log.ERROR, "HTTP server recovered from panic:", r)
+				log.Logf(log.ERROR, "HTTP server recovered from panic: %v", r)
+				// sleep for a while to avoid a tight loop
+				time.Sleep(1 * time.Second)
 				startHttpServer(config, store) // Restart the server if panic occurs
 			}
 		}()

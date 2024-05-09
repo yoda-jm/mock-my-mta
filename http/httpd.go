@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"strconv"
 
@@ -66,6 +67,10 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 		http.Error(w, "Not Found", http.StatusNotFound)
 	})
 
+	// serve pprof routes
+	pprofRouter := r.PathPrefix("/debug/pprof").Subrouter()
+	AttachProfiler(pprofRouter)
+
 	// Create GUI router
 	// Serve static files from the "static" directory
 	filesystem, httpFileSystem := getHttpFileSystem(staticDir, debug)
@@ -93,6 +98,21 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 		Handler: r,
 	}
 	return s
+}
+
+func AttachProfiler(router *mux.Router) {
+	router.HandleFunc("/", pprof.Index)
+	router.HandleFunc("/cmdline", pprof.Cmdline)
+	router.HandleFunc("/profile", pprof.Profile)
+	router.HandleFunc("/symbol", pprof.Symbol)
+	router.HandleFunc("/trace", pprof.Trace)
+	router.HandleFunc("/allocs", pprof.Handler("allocs").ServeHTTP)
+	router.HandleFunc("/goroutine", pprof.Handler("goroutine").ServeHTTP)
+	router.HandleFunc("/heap", pprof.Handler("heap").ServeHTTP)
+	router.HandleFunc("/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
+	router.HandleFunc("/block", pprof.Handler("block").ServeHTTP)
+	router.HandleFunc("/mutex", pprof.Handler("mutex").ServeHTTP)
+	router.HandleFunc("/profile", pprof.Handler("profile").ServeHTTP)
 }
 
 func fileExists(filesystem fs.FS, filepath string) bool {
