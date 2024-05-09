@@ -103,6 +103,13 @@ func fileExists(filesystem fs.FS, filepath string) bool {
 func getHttpFileSystem(staticDir string, debug bool) (fs.FS, http.FileSystem) {
 	if debug {
 		log.Logf(log.INFO, "serving static files from directory: %v", staticDir)
+		// check if static directory exists
+		if _, err := os.Stat(staticDir); os.IsNotExist(err) {
+			// static directory does not exist, revert to embedded filesystem
+			log.Logf(log.WARNING, "static directory %v does not exist, serving static files from embedded filesystem", staticDir)
+			staticContentFS, _ := fs.Sub(static, "static")
+			return staticContentFS, http.FS(static)
+		}
 		return os.DirFS(staticDir), http.Dir(staticDir)
 	} else {
 		log.Logf(log.INFO, "serving static files from embedded filesystem")
