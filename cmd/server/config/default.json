@@ -1,0 +1,30 @@
+{
+	"smtpd": {
+		"addr": ":8025",
+		"relay-addr": ""
+	},
+	"httpd": {
+		"addr": ":8080",
+		"debug": false
+	},
+	"storages": [
+		{
+			"type": "SQLITE",
+			"parameters": {
+				"database": "mock-my-mta.db"
+			}
+		},
+		{
+			"type": "MEMORY"
+		},
+		{
+			"type": "FILESYSTEM",
+			"parameters": {
+				"folder": "new-data"
+			}
+		}
+	],
+	"logging": {
+		"level": "INFO"
+	}
+}

@@ -25,7 +25,8 @@ type SmtpdConfiguration struct {
 }
 
 type HttpdConfiguration struct {
-	Addr string `json:"addr"`
+	Addr  string `json:"addr"`
+	Debug bool   `json:"debug"`
 }
 
 type LoggingConfiguration struct {

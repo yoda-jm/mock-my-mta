@@ -1,12 +1,13 @@
-package main
+package http
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -16,12 +17,18 @@ import (
 	"mock-my-mta/storage"
 )
 
-type httpServer struct {
+type Server struct {
 	server *http.Server
 	addr   string
 
 	store storage.Storage
 }
+
+// embed static directory
+//
+//go:embed static
+var static embed.FS
+var staticDir = "./http/static"
 
 // logf is logging with a request ID and a log level
 func logf(requestID string, r *http.Request, level log.LogLevel, format string, args ...interface{}) {
@@ -29,8 +36,8 @@ func logf(requestID string, r *http.Request, level log.LogLevel, format string, 
 	log.Logf(level, logFormat, args...)
 }
 
-func newHttpServer(addr string, store storage.Storage) *httpServer {
-	s := &httpServer{
+func NewServer(addr string, debug bool, store storage.Storage) *Server {
+	s := &Server{
 		addr:  addr,
 		store: store,
 	}
@@ -61,17 +68,24 @@ func newHttpServer(addr string, store storage.Storage) *httpServer {
 
 	// Create GUI router
 	// Serve static files from the "static" directory
-	staticDir := "./static"
-	fileServer := http.FileServer(http.Dir(staticDir))
+	filesystem, httpFileSystem := getHttpFileSystem(staticDir, debug)
+
+	fileServer := http.FileServer(httpFileSystem)
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Check if the file exists before serving
-		filePath := filepath.Join(staticDir, r.URL.Path)
-		if _, err := os.Stat(filePath); err == nil {
+		if fileExists(filesystem, r.URL.Path) {
 			fileServer.ServeHTTP(w, r)
-		} else {
-			// Redirect to index.html if the file is not found
-			http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			return
 		}
+		// server index.html for all other requests
+		content, err := fs.ReadFile(filesystem, "index.html")
+		if err != nil {
+			message := fmt.Sprintf("cannot read index.html from embedded filesystem: %v", err)
+			logf(generateRequestID(), r, log.ERROR, "error: %v", message)
+			http.Error(w, message, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(content)
 	})
 
 	s.server = &http.Server{
@@ -81,17 +95,33 @@ func newHttpServer(addr string, store storage.Storage) *httpServer {
 	return s
 }
 
-func (s *httpServer) ListenAndServe() error {
+func fileExists(filesystem fs.FS, filepath string) bool {
+	stat, err := fs.Stat(filesystem, filepath)
+	return err == nil && !stat.IsDir()
+}
+
+func getHttpFileSystem(staticDir string, debug bool) (fs.FS, http.FileSystem) {
+	if debug {
+		log.Logf(log.INFO, "serving static files from directory: %v", staticDir)
+		return os.DirFS(staticDir), http.Dir(staticDir)
+	} else {
+		log.Logf(log.INFO, "serving static files from embedded filesystem")
+		staticContentFS, _ := fs.Sub(static, "static")
+		return staticContentFS, http.FS(static)
+	}
+}
+
+func (s *Server) ListenAndServe() error {
 	log.Logf(log.INFO, "starting http server on %v", s.addr)
 	return s.server.ListenAndServe()
 }
 
-func (s *httpServer) Shutdown() error {
+func (s *Server) Shutdown() error {
 	log.Logf(log.INFO, "stopping http server...", s.addr)
 	return s.server.Shutdown(context.TODO())
 }
 
-func (s *httpServer) getMailboxes(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getMailboxes(w http.ResponseWriter, r *http.Request) {
 	// Get all mailboxes
 	logf(generateRequestID(), r, log.DEBUG, "getting mailboxes")
 	mailboxes, err := s.store.GetMailboxes()
@@ -105,7 +135,7 @@ func (s *httpServer) getMailboxes(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, mailboxes)
 }
 
-func (s *httpServer) getEmailByID(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getEmailByID(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID from the URL
 	vars := mux.Vars(r)
 	emailID := vars["email_id"]
@@ -123,7 +153,7 @@ func (s *httpServer) getEmailByID(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, email)
 }
 
-func (s *httpServer) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
+func (s *Server) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID from the URL
 	vars := mux.Vars(r)
 	emailID := vars["email_id"]
@@ -141,7 +171,7 @@ func (s *httpServer) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *httpServer) getBodyVersion(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getBodyVersion(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID and body version from the URL
 	vars := mux.Vars(r)
 	emailID := vars["email_id"]
@@ -166,7 +196,7 @@ func (s *httpServer) getBodyVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, body)
 }
 
-func (s *httpServer) getAttachments(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getAttachments(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID from the URL
 	vars := mux.Vars(r)
 	emailID := vars["email_id"]
@@ -184,7 +214,7 @@ func (s *httpServer) getAttachments(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, attachments)
 }
 
-func (s *httpServer) getAttachmentContent(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getAttachmentContent(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID and attachment ID from the URL
 	vars := mux.Vars(r)
 	emailID := vars["email_id"]
@@ -219,7 +249,7 @@ type SearchEmailsResponse struct {
 	Paginnation PaginnationResponse `json:"pagination"`
 }
 
-func (s *httpServer) getEmails(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getEmails(w http.ResponseWriter, r *http.Request) {
 	// Get the query parameter from the URL
 	query := r.URL.Query().Get("query")
 	if query != "" {

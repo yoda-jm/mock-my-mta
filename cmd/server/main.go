@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"mock-my-mta/http"
 	"mock-my-mta/log"
 	"mock-my-mta/storage"
 )
@@ -72,7 +73,7 @@ func main() {
 	// start smtp server
 	startSmtpServer(config.Smtpd.Addr, storageEngine, config.Smtpd.RelayAddr)
 	// start http server
-	startHttpServer(config.Httpd.Addr, storageEngine)
+	startHttpServer(config.Httpd, storageEngine)
 
 	// Set up a signal handler to gracefully shutdown the servers on QUIT/TERM signals
 	quit := make(chan os.Signal, 1)
@@ -140,13 +141,13 @@ func startSmtpServer(addr string, storageEngine *storage.Engine, relayAddress st
 	}()
 }
 
-func startHttpServer(addr string, store storage.Storage) {
-	server := newHttpServer(addr, store)
+func startHttpServer(config HttpdConfiguration, store storage.Storage) {
+	server := http.NewServer(config.Addr, config.Debug, store)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "HTTP server recovered from panic:", r)
-				startHttpServer(addr, store) // Restart the server if panic occurs
+				startHttpServer(config, store) // Restart the server if panic occurs
 			}
 		}()
 
