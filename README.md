@@ -38,6 +38,13 @@ To install and run this project, follow these steps:
 4. Connect your browser to http://localhost:8080
 5. Configure your service sending emails to use localhost on port 8025
 
+## Launching tests
+
+To launch the test and look at the test coverage do the following:
+
+1. Launch tests with coverage profile: `go test -coverprofile=c.out ./...`
+2. Open the tests results in a browser: `go tool cover -html="c.out"`
+
 ## Additional information
 
 If you want more emails to test performance and various emails, you can put `.eml` email files
