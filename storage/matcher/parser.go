@@ -8,6 +8,20 @@ import (
 	"time"
 )
 
+// invalid query error
+type InvalidQueryError struct {
+	query string
+	err   string
+}
+
+func newInvalidQueryError(query, err string) InvalidQueryError {
+	return InvalidQueryError{query: query, err: err}
+}
+
+func (e InvalidQueryError) Error() string {
+	return fmt.Sprintf("invalid query %q: %v", e.query, e.err)
+}
+
 // extract matchers from the query
 func ParseQuery(query string) ([]interface{}, error) {
 	const LAYOUT_DATE = "2006-01-02"
@@ -28,13 +42,13 @@ func ParseQuery(query string) ([]interface{}, error) {
 					log.Logf(log.DEBUG, "searching for emails with attachments")
 					matchers = append(matchers, newAttachmentMatch())
 				default:
-					return nil, fmt.Errorf("unknown search attribute for 'has': %v", value)
+					return nil, newInvalidQueryError(query, fmt.Sprintf("unknown search attribute for 'has': %v", value))
 				}
 			case "before":
 				// search for emails with date before
 				valueDate, err := time.Parse(LAYOUT_DATE, value)
 				if err != nil {
-					return nil, fmt.Errorf("invalid date format: %v", value)
+					return nil, newInvalidQueryError(query, fmt.Sprintf("invalid date format: %v", value))
 				}
 				log.Logf(log.DEBUG, "searching for emails before %v", value)
 				matchers = append(matchers, newBeforeMatch(valueDate))
@@ -42,7 +56,7 @@ func ParseQuery(query string) ([]interface{}, error) {
 				// search for emails with date after
 				valueDate, err := time.Parse(LAYOUT_DATE, value)
 				if err != nil {
-					return nil, fmt.Errorf("invalid date format: %v", value)
+					return nil, newInvalidQueryError(query, fmt.Sprintf("invalid date format: %v", value))
 				}
 				log.Logf(log.DEBUG, "searching for emails after %v", value)
 				matchers = append(matchers, newAfterMatch(valueDate))
@@ -54,7 +68,7 @@ func ParseQuery(query string) ([]interface{}, error) {
 				// search for emails older than the specified duration
 				duration, err := time.ParseDuration(value)
 				if err != nil {
-					return nil, fmt.Errorf("invalid duration format: %v", value)
+					return nil, newInvalidQueryError(query, fmt.Sprintf("invalid duration format: %v", value))
 				}
 				log.Logf(log.DEBUG, "searching for emails older than %v", duration)
 				matchers = append(matchers, newOlderThanMatch(duration))
@@ -62,7 +76,7 @@ func ParseQuery(query string) ([]interface{}, error) {
 				// search for emails newer than the specified duration
 				duration, err := time.ParseDuration(value)
 				if err != nil {
-					return nil, fmt.Errorf("invalid duration format: %v", value)
+					return nil, newInvalidQueryError(query, fmt.Sprintf("invalid duration format: %v", value))
 				}
 				log.Logf(log.DEBUG, "searching for emails newer than %v", duration)
 				matchers = append(matchers, newNewerThanMatch(duration))
@@ -71,7 +85,7 @@ func ParseQuery(query string) ([]interface{}, error) {
 				log.Logf(log.DEBUG, "searching for emails with subject %v", value)
 				matchers = append(matchers, newSubjectMatch(value))
 			default:
-				return nil, fmt.Errorf("unknown search key: %v", key)
+				return nil, newInvalidQueryError(query, fmt.Sprintf("unknown search key: %v", key))
 			}
 		}
 	}

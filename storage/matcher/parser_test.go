@@ -1,6 +1,8 @@
 package matcher
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -11,23 +13,51 @@ func TestParse(t *testing.T) {
 		query         string
 		expectedType  string
 		expectedValue interface{}
+		expectedError error
 	}{
-		{"has attachment", "has:attachment", "AttachmentMatch", nil},
-		{"mailbox", "mailbox:recipient@example.com", "MailboxMatch", "recipient@example.com"},
-		{"before", "before:2020-02-01", "BeforeMatch", time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC)},
-		{"after", "after:2020-03-01", "AfterMatch", time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC)},
-		{"from", "from:sender@example.com", "FromMatch", "sender@example.com"},
-		{"older_than", "older_than:2h", "OlderThanMatch", 2 * time.Hour},
-		{"subject", "subject:important", "SubjectMatch", "important"},
-		{"plain_text", "important", "PlainTextMatch", "important"},
-		{"plain_text_quote", "\"important thing\"", "PlainTextMatch", "important thing"},
+		// OK cases
+		{"has attachment", "has:attachment", "AttachmentMatch", nil, nil},
+		{"mailbox", "mailbox:recipient@example.com", "MailboxMatch", "recipient@example.com", nil},
+		{"before", "before:2020-02-01", "BeforeMatch", time.Date(2020, 2, 1, 0, 0, 0, 0, time.UTC), nil},
+		{"after", "after:2020-03-01", "AfterMatch", time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC), nil},
+		{"from", "from:sender@example.com", "FromMatch", "sender@example.com", nil},
+		{"older_than", "older_than:2h", "OlderThanMatch", 2 * time.Hour, nil},
+		{"newer_than", "newer_than:2h", "NewerThanMatch", 2 * time.Hour, nil},
+		{"subject", "subject:important", "SubjectMatch", "important", nil},
+		{"plain_text", "important", "PlainTextMatch", "important", nil},
+		{"plain_text_quote", "\"important thing\"", "PlainTextMatch", "important thing", nil},
+		{"empty query", "", "", nil, nil},
+		{"empty quote", "\"\"", "", nil, nil},
+		// Error cases
+		{"has something", "has:something", "", nil, InvalidQueryError{}},
+		{"before invalid date", "before:2020-02-30", "", nil, InvalidQueryError{}},
+		{"after invalid date", "after:2020-02-30", "", nil, InvalidQueryError{}},
+		{"older_than invalid duration", "older_than:2f30m", "", nil, InvalidQueryError{}},
+		{"newer_than invalid duration", "newer_than:2f30m", "", nil, InvalidQueryError{}},
+		{"unknown key", "unknown:some-value", "", nil, InvalidQueryError{}},
+		// FIXME: these cases should be handled by the parser
+		{"older_than not managed duration", "older_than:2d", "", nil, InvalidQueryError{}},
+		{"newer_than not managed duration", "newer_than:2d", "", nil, InvalidQueryError{}},
 	}
 
 	for _, data := range testData {
 		t.Run(data.name, func(t *testing.T) {
 			matchers, err := ParseQuery(data.query)
-			if err != nil {
-				t.Errorf("Error parsing query: %v", err)
+			if err != nil && data.expectedError == nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if err == nil && data.expectedError != nil {
+				t.Errorf("Expected error: %v", data.expectedError)
+			}
+			if err != nil && data.expectedError != nil {
+				// check that err and data.expectedError have the same type
+				if fmt.Sprintf("%T", err) != fmt.Sprintf("%T", data.expectedError) {
+					t.Errorf("Expected error type %T, got %T", data.expectedError, err)
+				}
+				return
+			}
+			if data.expectedValue == nil && len(matchers) == 0 {
+				return
 			}
 			if len(matchers) != 1 {
 				t.Errorf("Expected 1 matcher, got %v", len(matchers))
@@ -72,6 +102,13 @@ func TestParse(t *testing.T) {
 			case OlderThanMatch:
 				if data.expectedType != "OlderThanMatch" {
 					t.Errorf("Expected OlderThanMatch, got %T", m)
+				}
+				if m.GetDuration() != data.expectedValue {
+					t.Errorf("Expected %v, got %v", data.expectedValue, m.GetDuration())
+				}
+			case NewerThanMatch:
+				if data.expectedType != "NewerThanMatch" {
+					t.Errorf("Expected NewerThanMatch, got %T", m)
 				}
 				if m.GetDuration() != data.expectedValue {
 					t.Errorf("Expected %v, got %v", data.expectedValue, m.GetDuration())
@@ -158,5 +195,21 @@ func TestParseQuotedSubject(t *testing.T) {
 	}
 	if subjectMatch.GetSubject() != "important and quoted" {
 		t.Errorf("Expected subject important and quoted, got %v", subjectMatch.GetSubject())
+	}
+}
+
+func TestInvalidQueryError(t *testing.T) {
+	query := "mailbox:recipient@example.com has:attachment sometext \"important and quoted\" before:2020-02-01 after:2020-03-01 from:sender@example.com older_than:2h subject:important"
+	errorString := "some error message"
+	// check that the error message contains both the query and the error string
+	err := newInvalidQueryError(query, errorString)
+	errorMessage := err.Error()
+	// check that the error message contains the query (quoted)
+	if !strings.Contains(errorMessage, fmt.Sprintf("%q", query)) {
+		t.Errorf("Expected error message to contain query, got %v", err.Error())
+	}
+	// check that the error message contains the error string
+	if !strings.Contains(errorMessage, errorString) {
+		t.Errorf("Expected error message to contain error string, got %v", err.Error())
 	}
 }
