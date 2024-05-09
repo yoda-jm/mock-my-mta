@@ -15,27 +15,27 @@ import (
 )
 
 // FilesystemStorage is a storage engine that stores emails on the filesystem.
-type FilesystemStorage struct {
+type filesystemStorage struct {
 	folder string
 }
 
 // FilesystemStorage implements the Storage interface
-var _ Storage = &FilesystemStorage{}
+var _ Storage = &filesystemStorage{}
 
-func newFilesystemStorage(folder string) (*FilesystemStorage, error) {
+func newFilesystemStorage(folder string) (*filesystemStorage, error) {
 	log.Logf(log.INFO, "using storage in folder %v", folder)
-	return &FilesystemStorage{folder: folder}, nil
+	return &filesystemStorage{folder: folder}, nil
 }
 
 // DeleteEmailByID implements Storage.
-func (s *FilesystemStorage) DeleteEmailByID(emailID string) error {
+func (s *filesystemStorage) DeleteEmailByID(emailID string) error {
 	filePath := filepath.Join(s.folder, emailID+".eml")
 	log.Logf(log.DEBUG, "deleting file %v", filePath)
 	return os.Remove(filePath)
 }
 
 // GetAttachment implements Storage.
-func (s *FilesystemStorage) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
+func (s *filesystemStorage) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
 	mp, err := loadEmailFromID(s.folder, emailID)
 	if err != nil {
 		return Attachment{}, err
@@ -59,7 +59,7 @@ func (s *FilesystemStorage) GetAttachment(emailID string, attachmentID string) (
 }
 
 // GetAttachments implements Storage.
-func (s *FilesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, error) {
+func (s *filesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, error) {
 	mp, err := loadEmailFromID(s.folder, emailID)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (s *FilesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, 
 }
 
 // GetBodyVersion implements Storage.
-func (s *FilesystemStorage) GetBodyVersion(emailID string, version EmailVersionType) (string, error) {
+func (s *filesystemStorage) GetBodyVersion(emailID string, version EmailVersionType) (string, error) {
 	if version == EmailVersionRaw {
 		// return the raw version of the email
 		rawBody, err := getRawBody(s.folder, emailID)
@@ -103,7 +103,7 @@ func (s *FilesystemStorage) GetBodyVersion(emailID string, version EmailVersionT
 }
 
 // GetEmailByID implements Storage.
-func (s *FilesystemStorage) GetEmailByID(emailID string) (EmailHeader, error) {
+func (s *filesystemStorage) GetEmailByID(emailID string) (EmailHeader, error) {
 	multipart, err := loadEmailFromID(s.folder, emailID)
 	if err != nil {
 		return EmailHeader{}, err
@@ -113,7 +113,7 @@ func (s *FilesystemStorage) GetEmailByID(emailID string) (EmailHeader, error) {
 }
 
 // GetMailboxes implements Storage.
-func (s *FilesystemStorage) GetMailboxes() ([]Mailbox, error) {
+func (s *filesystemStorage) GetMailboxes() ([]Mailbox, error) {
 	// list all files in the folder
 	emailIDs, err := getAllEmailIDs(s.folder)
 	if err != nil {
@@ -142,7 +142,7 @@ func (s *FilesystemStorage) GetMailboxes() ([]Mailbox, error) {
 }
 
 // SearchEmails implements Storage.
-func (s *FilesystemStorage) SearchEmails(query string, page int, pageSize int) ([]EmailHeader, int, error) {
+func (s *filesystemStorage) SearchEmails(query string, page int, pageSize int) ([]EmailHeader, int, error) {
 	// Parse the query string
 	matchers, err := matcher.ParseQuery(query)
 	if err != nil {
@@ -194,7 +194,7 @@ func (s *FilesystemStorage) SearchEmails(query string, page int, pageSize int) (
 }
 
 // Load loads the storage based on the root storage
-func (s *FilesystemStorage) load(rootStorage Storage) error {
+func (s *filesystemStorage) load(rootStorage Storage) error {
 	// check that the folder exists
 	if _, err := os.Stat(s.folder); os.IsNotExist(err) {
 		// create the folder
@@ -208,7 +208,7 @@ func (s *FilesystemStorage) load(rootStorage Storage) error {
 }
 
 // setWithID inserts a new email into the storage.
-func (s *FilesystemStorage) setWithID(emailID string, message *mail.Message) error {
+func (s *filesystemStorage) setWithID(emailID string, message *mail.Message) error {
 	log.Logf(log.INFO, "saving email %v", emailID)
 	// create the file
 	file, err := os.Create(filepath.Join(s.folder, emailID+".eml"))
