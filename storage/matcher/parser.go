@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mock-my-mta/log"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -66,7 +67,7 @@ func ParseQuery(query string) ([]interface{}, error) {
 				matchers = append(matchers, newFromMatch(value))
 			case "older_than":
 				// search for emails older than the specified duration
-				duration, err := time.ParseDuration(value)
+				duration, err := parseCustomDuration(value)
 				if err != nil {
 					return nil, newInvalidQueryError(query, fmt.Sprintf("invalid duration format: %v", value))
 				}
@@ -74,7 +75,7 @@ func ParseQuery(query string) ([]interface{}, error) {
 				matchers = append(matchers, newOlderThanMatch(duration))
 			case "newer_than":
 				// search for emails newer than the specified duration
-				duration, err := time.ParseDuration(value)
+				duration, err := parseCustomDuration(value)
 				if err != nil {
 					return nil, newInvalidQueryError(query, fmt.Sprintf("invalid duration format: %v", value))
 				}
@@ -99,6 +100,28 @@ func ParseQuery(query string) ([]interface{}, error) {
 		matchers = append(matchers, newPlainTextMatch(plainText))
 	}
 	return matchers, nil
+}
+
+func parseCustomDuration(value string) (time.Duration, error) {
+	// regexps map (key: regexp, value: hour multiplier)
+	regexps := map[*regexp.Regexp]int{
+		regexp.MustCompile(`^(\d+)\s*(day|days)$`): 24,
+		regexp.MustCompile(`^(\d+)\s*(week|weeks)$`): 24 * 7,
+		regexp.MustCompile(`^(\d+)\s*(month|months)$`): 24 * 30,
+		regexp.MustCompile(`^(\d+)\s*(year|years)$`): 24 * 365,
+	}
+	for re, multiplier := range regexps {
+		if re.MatchString(value) {
+			matches := re.FindStringSubmatch(value)
+			days, err := strconv.ParseInt(matches[1], 10, 32)
+			if err != nil {
+				return 0, err
+			}
+			return time.Duration(days) * time.Duration(multiplier) * time.Hour, nil
+		}
+	}
+	// if it doesn't match any of the above, parse it as a time.Duration
+	return time.ParseDuration(value)
 }
 
 // tokenizeQuery parses the input string into a slice of key-value pairs and plain text elements.

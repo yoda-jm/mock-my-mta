@@ -60,11 +60,10 @@ There is still a lot of things that should be done:
 - improve GUI (general layout, button interactions, ...)
 - implement new storage layers (memory, sqlite, other SQL, mongo, ...)
 - increase test coverage (and have an automatic report generated)
-- github worflows for code quality, test coverage, binary build, ...
+- github worflows for code quality, ...
 - add more relevant email examples, with corner cases tests
 - add more data-testid in the frontend (in order to be easy to use with tools such as playwright)
 - find a nice logo (and maybe a name) for the project
-- fix search syntax by duration for requesting days/months/years
 - query typeahead when possible
 - make Content-Security-Policy work when displaying email
 - automatically embed images with cid (attached to the email)

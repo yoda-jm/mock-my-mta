@@ -23,6 +23,8 @@ func TestParse(t *testing.T) {
 		{"from", "from:sender@example.com", "FromMatch", "sender@example.com", nil},
 		{"older_than", "older_than:2h", "OlderThanMatch", 2 * time.Hour, nil},
 		{"newer_than", "newer_than:2h", "NewerThanMatch", 2 * time.Hour, nil},
+		{"older_than_days", "older_than:2days", "OlderThanMatch", 2 * 24 * time.Hour, nil},
+		{"newer_than_days", "newer_than:2days", "NewerThanMatch", 2 * 24 * time.Hour, nil},
 		{"subject", "subject:important", "SubjectMatch", "important", nil},
 		{"plain_text", "important", "PlainTextMatch", "important", nil},
 		{"plain_text_quote", "\"important thing\"", "PlainTextMatch", "important thing", nil},
@@ -211,5 +213,57 @@ func TestInvalidQueryError(t *testing.T) {
 	// check that the error message contains the error string
 	if !strings.Contains(errorMessage, errorString) {
 		t.Errorf("Expected error message to contain error string, got %v", err.Error())
+	}
+}
+
+func TestParseCustomDuration(t *testing.T) {
+	testCases := []struct {
+		name     string
+		duration string
+		expected time.Duration
+		err	     error
+	}{
+		// cutom duration cases
+		{"1day", "1day", 24 * time.Hour, nil},
+		{"3days", "3days", 3 * 24 * time.Hour, nil},
+		{"1week", "1week", 7 * 24 * time.Hour, nil},
+		{"3weeks", "3weeks", 3 * 7 * 24 * time.Hour, nil},
+		{"1month", "1month", 30 * 24 * time.Hour, nil},
+		{"3months", "3months", 3 * 30 * 24 * time.Hour, nil},
+		{"1year", "1year", 365 * 24 * time.Hour, nil},
+		{"3years", "3years", 3 * 365 * 24 * time.Hour, nil},
+		{"invalid", "invalid", 0, fmt.Errorf("time: invalid duration \"%v\"", "invalid")},
+		// standard duration cases
+		{"1h", "1h", 1 * time.Hour, nil},
+		{"1m", "1m", 1 * time.Minute, nil},
+		{"1s", "1s", 1 * time.Second, nil},
+		{"1ms", "1ms", 1 * time.Millisecond, nil},
+		{"1us", "1us", 1 * time.Microsecond, nil},
+		{"1ns", "1ns", 1 * time.Nanosecond, nil},
+		// combined standard duration cases
+		{"1h1m", "1h1m", 1 * time.Hour + 1 * time.Minute, nil},
+		{"1h1m1s", "1h1m1s", 1 * time.Hour + 1 * time.Minute + 1 * time.Second, nil},
+		{"1h1m1s1ms", "1h1m1s1ms", 1 * time.Hour + 1 * time.Minute + 1 * time.Second + 1 * time.Millisecond, nil},
+		{"1h1m1s1ms1us", "1h1m1s1ms1us", 1 * time.Hour + 1 * time.Minute + 1 * time.Second + 1 * time.Millisecond + 1 * time.Microsecond, nil},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			duration, err := parseCustomDuration(tc.duration)
+			if err != nil && tc.err == nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if err == nil && tc.err != nil {
+				t.Errorf("Expected error: %v", tc.err)
+			}
+			if err != nil && tc.err != nil {
+				if err.Error() != tc.err.Error() {
+					t.Errorf("Expected error %v, got %v", tc.err, err)
+				}
+				return
+			}
+			if duration != tc.expected {
+				t.Errorf("Expected %v, got %v", tc.expected, duration)
+			}
+		})
 	}
 }
