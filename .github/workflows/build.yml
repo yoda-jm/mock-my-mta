@@ -1,0 +1,84 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build and Test for All Platforms
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        go-version: [1.21.x]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+          - os: ubuntu-latest
+            arch: arm64
+          - os: windows-latest
+            arch: amd64
+          - os: macos-latest
+            arch: amd64
+          - os: macos-latest
+            arch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test ./... -v
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'darwin' }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          go build -o bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server/
+    
+      - name: Upload binary
+        if: success()
+        uses: actions/upload-artifact@v3
+        with:
+          name: mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
+          path: bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
+
+  test_coverage:
+    name: Run Test Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.x
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests with coverage
+        run: go test -coverprofile=c.out ./...
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: c.out
