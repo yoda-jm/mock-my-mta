@@ -105,10 +105,10 @@ func ParseQuery(query string) ([]interface{}, error) {
 func parseCustomDuration(value string) (time.Duration, error) {
 	// regexps map (key: regexp, value: hour multiplier)
 	regexps := map[*regexp.Regexp]int{
-		regexp.MustCompile(`^(\d+)\s*(day|days)$`): 24,
-		regexp.MustCompile(`^(\d+)\s*(week|weeks)$`): 24 * 7,
+		regexp.MustCompile(`^(\d+)\s*(d|day|days)$`): 24,
+		regexp.MustCompile(`^(\d+)\s*(w|week|weeks)$`): 24 * 7,
 		regexp.MustCompile(`^(\d+)\s*(month|months)$`): 24 * 30,
-		regexp.MustCompile(`^(\d+)\s*(year|years)$`): 24 * 365,
+		regexp.MustCompile(`^(\d+)\s*(y|year|years)$`): 24 * 365,
 	}
 	for re, multiplier := range regexps {
 		if re.MatchString(value) {

@@ -25,6 +25,8 @@ func TestParse(t *testing.T) {
 		{"newer_than", "newer_than:2h", "NewerThanMatch", 2 * time.Hour, nil},
 		{"older_than_days", "older_than:2days", "OlderThanMatch", 2 * 24 * time.Hour, nil},
 		{"newer_than_days", "newer_than:2days", "NewerThanMatch", 2 * 24 * time.Hour, nil},
+		{"older_than_days", "older_than:2d", "OlderThanMatch", 2 * 24 * time.Hour, nil},
+		{"newer_than_days", "newer_than:2d", "NewerThanMatch", 2 * 24 * time.Hour, nil},
 		{"subject", "subject:important", "SubjectMatch", "important", nil},
 		{"plain_text", "important", "PlainTextMatch", "important", nil},
 		{"plain_text_quote", "\"important thing\"", "PlainTextMatch", "important thing", nil},
@@ -37,9 +39,6 @@ func TestParse(t *testing.T) {
 		{"older_than invalid duration", "older_than:2f30m", "", nil, InvalidQueryError{}},
 		{"newer_than invalid duration", "newer_than:2f30m", "", nil, InvalidQueryError{}},
 		{"unknown key", "unknown:some-value", "", nil, InvalidQueryError{}},
-		// FIXME: these cases should be handled by the parser
-		{"older_than not managed duration", "older_than:2d", "", nil, InvalidQueryError{}},
-		{"newer_than not managed duration", "newer_than:2d", "", nil, InvalidQueryError{}},
 	}
 
 	for _, data := range testData {
@@ -224,12 +223,18 @@ func TestParseCustomDuration(t *testing.T) {
 		err	     error
 	}{
 		// cutom duration cases
+		{"1d", "1d", 24 * time.Hour, nil},
+		{"3d", "3d", 3 * 24 * time.Hour, nil},
 		{"1day", "1day", 24 * time.Hour, nil},
 		{"3days", "3days", 3 * 24 * time.Hour, nil},
 		{"1week", "1week", 7 * 24 * time.Hour, nil},
+		{"1w", "1w", 7 * 24 * time.Hour, nil},
+		{"3w", "3w", 3 * 7 * 24 * time.Hour, nil},
 		{"3weeks", "3weeks", 3 * 7 * 24 * time.Hour, nil},
 		{"1month", "1month", 30 * 24 * time.Hour, nil},
 		{"3months", "3months", 3 * 30 * 24 * time.Hour, nil},
+		{"1y", "1y", 365 * 24 * time.Hour, nil},
+		{"3y", "3y", 3 * 365 * 24 * time.Hour, nil},
 		{"1year", "1year", 365 * 24 * time.Hour, nil},
 		{"3years", "3years", 3 * 365 * 24 * time.Hour, nil},
 		{"invalid", "invalid", 0, fmt.Errorf("time: invalid duration \"%v\"", "invalid")},
