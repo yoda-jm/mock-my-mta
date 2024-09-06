@@ -10,6 +10,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -72,19 +73,22 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 	AttachProfiler(pprofRouter)
 
 	// Create GUI router
-	// Serve static files from the "static" directory
-	filesystem, httpFileSystem := getHttpFileSystem(staticDir, debug)
-
-	fileServer := http.FileServer(httpFileSystem)
+	// Serve static files from the "static" directory or embedded filesystem
+	// depending on the debug flag
+	filesystem := getFileSystem(staticDir, debug)
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if fileExists(filesystem, r.URL.Path) {
-			fileServer.ServeHTTP(w, r)
-			return
-		}
-		// server index.html for all other requests
-		content, err := fs.ReadFile(filesystem, "index.html")
+		filename, err := locateFile(filesystem, r.URL.Path)
 		if err != nil {
-			message := fmt.Sprintf("cannot read index.html from embedded filesystem: %v", err)
+			// file not found, serve index.html instead
+			filename = "index.html"
+		}
+		content, err := fs.ReadFile(filesystem, filename)
+		if err != nil {
+			fileSystemType := "embedded"
+			if debug {
+				fileSystemType = "local"
+			}
+			message := fmt.Sprintf("cannot read %q from %v filesystem: %v", filename, fileSystemType, err)
 			logf(generateRequestID(), r, log.ERROR, "error: %v", message)
 			http.Error(w, message, http.StatusInternalServerError)
 			return
@@ -115,12 +119,20 @@ func AttachProfiler(router *mux.Router) {
 	router.HandleFunc("/profile", pprof.Handler("profile").ServeHTTP)
 }
 
-func fileExists(filesystem fs.FS, filepath string) bool {
-	stat, err := fs.Stat(filesystem, filepath)
-	return err == nil && !stat.IsDir()
+func locateFile(filesystem fs.FS, filepath string) (string, error) {
+	// check if file exists
+	if stat, err := fs.Stat(filesystem, filepath); err == nil && !stat.IsDir() {
+		return filepath, nil
+	}
+	// check if file exists when trimming the leading slash
+	trimmedFilepath := strings.TrimPrefix(filepath, "/")
+	if stat, err := fs.Stat(filesystem, trimmedFilepath); err == nil && !stat.IsDir() {
+		return trimmedFilepath, nil
+	}
+	return "", fmt.Errorf("file not found: %v", filepath)
 }
 
-func getHttpFileSystem(staticDir string, debug bool) (fs.FS, http.FileSystem) {
+func getFileSystem(staticDir string, debug bool) fs.FS {
 	if debug {
 		log.Logf(log.INFO, "serving static files from directory: %v", staticDir)
 		// check if static directory exists
@@ -128,13 +140,13 @@ func getHttpFileSystem(staticDir string, debug bool) (fs.FS, http.FileSystem) {
 			// static directory does not exist, revert to embedded filesystem
 			log.Logf(log.WARNING, "static directory %v does not exist, serving static files from embedded filesystem", staticDir)
 			staticContentFS, _ := fs.Sub(static, "static")
-			return staticContentFS, http.FS(static)
+			return staticContentFS
 		}
-		return os.DirFS(staticDir), http.Dir(staticDir)
+		return os.DirFS(staticDir)
 	} else {
 		log.Logf(log.INFO, "serving static files from embedded filesystem")
 		staticContentFS, _ := fs.Sub(static, "static")
-		return staticContentFS, http.FS(static)
+		return staticContentFS
 	}
 }
 
