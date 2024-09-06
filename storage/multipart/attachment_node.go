@@ -25,7 +25,3 @@ func (l AttachmentNode) GetFilename() string {
 func (l AttachmentNode) GetSize() int {
 	return len(l.body)
 }
-
-func (l AttachmentNode) GetDecodedBody() string {
-	return l.GetDecodedBody()
-}
