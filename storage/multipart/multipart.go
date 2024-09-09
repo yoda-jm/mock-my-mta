@@ -294,7 +294,7 @@ func (mp Multipart) GetBodyVersions() []string {
 
 func decodeHeader(header string) string {
 	dec := new(mime.WordDecoder)
-	decoded, err := dec.Decode(header)
+	decoded, err := dec.DecodeHeader(header)
 	if err != nil {
 		return header
 	}
