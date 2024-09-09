@@ -331,6 +331,7 @@ $(function () {
     function generateMaiboxListItem(mailbox) {
         return $('<li class="list-item">')
             .text(mailbox.name)
+            .attr('title', mailbox.name)
             .click(function () {
                 var query = "mailbox:" + mailbox.name;
                 // set current page to 1
