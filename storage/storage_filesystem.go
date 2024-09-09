@@ -14,29 +14,67 @@ import (
 	"mock-my-mta/storage/multipart"
 )
 
+type filesystemType string
+
+const (
+	FileStorageTypeEML     filesystemType = "eml"
+	FileStorageTypeMailhog filesystemType = "mailhog"
+)
+
+func parseFilesystemType(filesystemType string) (filesystemType, error) {
+	switch filesystemType {
+	case "eml":
+		return FileStorageTypeEML, nil
+	case "mailhog":
+		return FileStorageTypeMailhog, nil
+	default:
+		return "", fmt.Errorf("unknown filesystem type: %v", filesystemType)
+	}
+}
+
+func (t filesystemType) GetFileSuffix() string {
+	switch t {
+	case FileStorageTypeEML:
+		return ".eml"
+	case FileStorageTypeMailhog:
+		return "@mailhog.example"
+	}
+	panic("unknown filesystem type")
+}
+
 // FilesystemStorage is a storage engine that stores emails on the filesystem.
 type filesystemStorage struct {
-	folder string
+	folder         string
+	filesystemType filesystemType
 }
 
 // FilesystemStorage implements the Storage interface
 var _ Storage = &filesystemStorage{}
 
-func newFilesystemStorage(folder string) (*filesystemStorage, error) {
-	log.Logf(log.INFO, "using storage in folder %v", folder)
-	return &filesystemStorage{folder: folder}, nil
+func newFilesystemStorage(folder string, filesystemTypeStr string) (*filesystemStorage, error) {
+	log.Logf(log.INFO, "using storage in folder %v (type=%v)", folder, filesystemTypeStr)
+	filesystemType, err := parseFilesystemType(filesystemTypeStr)
+	if err != nil {
+		return nil, err
+	}
+	return &filesystemStorage{folder: folder, filesystemType: filesystemType}, nil
 }
 
 // DeleteEmailByID implements Storage.
 func (s *filesystemStorage) DeleteEmailByID(emailID string) error {
-	filePath := filepath.Join(s.folder, emailID+".eml")
+	filePath := s.getEmailFilename(emailID)
 	log.Logf(log.DEBUG, "deleting file %v", filePath)
 	return os.Remove(filePath)
 }
 
+// getEmailFilename returns the filename of the email.
+func (s *filesystemStorage) getEmailFilename(emailID string) string {
+	return filepath.Join(s.folder, emailID+s.filesystemType.GetFileSuffix())
+}
+
 // GetAttachment implements Storage.
 func (s *filesystemStorage) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
-	mp, err := loadEmailFromID(s.folder, emailID)
+	mp, err := s.loadEmailFromID(emailID)
 	if err != nil {
 		return Attachment{}, err
 	}
@@ -60,7 +98,7 @@ func (s *filesystemStorage) GetAttachment(emailID string, attachmentID string) (
 
 // GetAttachments implements Storage.
 func (s *filesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, error) {
-	mp, err := loadEmailFromID(s.folder, emailID)
+	mp, err := s.loadEmailFromID(emailID)
 	if err != nil {
 		return nil, err
 	}
@@ -80,13 +118,13 @@ func (s *filesystemStorage) GetAttachments(emailID string) ([]AttachmentHeader, 
 func (s *filesystemStorage) GetBodyVersion(emailID string, version EmailVersionType) (string, error) {
 	if version == EmailVersionRaw {
 		// return the raw version of the email
-		rawBody, err := getRawBody(s.folder, emailID)
+		rawBody, err := s.getRawBody(emailID)
 		if err != nil {
 			return "", err
 		}
 		return string(rawBody), nil
 	}
-	mp, err := loadEmailFromID(s.folder, emailID)
+	mp, err := s.loadEmailFromID(emailID)
 	if err != nil {
 		return "", err
 	}
@@ -104,7 +142,7 @@ func (s *filesystemStorage) GetBodyVersion(emailID string, version EmailVersionT
 
 // GetEmailByID implements Storage.
 func (s *filesystemStorage) GetEmailByID(emailID string) (EmailHeader, error) {
-	multipart, err := loadEmailFromID(s.folder, emailID)
+	multipart, err := s.loadEmailFromID(emailID)
 	if err != nil {
 		return EmailHeader{}, err
 	}
@@ -115,14 +153,14 @@ func (s *filesystemStorage) GetEmailByID(emailID string) (EmailHeader, error) {
 // GetMailboxes implements Storage.
 func (s *filesystemStorage) GetMailboxes() ([]Mailbox, error) {
 	// list all files in the folder
-	emailIDs, err := getAllEmailIDs(s.folder)
+	emailIDs, err := s.getAllEmailIDs()
 	if err != nil {
 		return nil, err
 	}
 	// extract the recipients from the emails
 	recipents := make(map[string]bool)
 	for _, emailID := range emailIDs {
-		multipart, err := loadEmailFromID(s.folder, emailID)
+		multipart, err := s.loadEmailFromID(emailID)
 		if err != nil {
 			return nil, err
 		}
@@ -150,13 +188,13 @@ func (s *filesystemStorage) SearchEmails(query string, page int, pageSize int) (
 	}
 
 	// list all files in the folder
-	emailIDs, err := getAllEmailIDs(s.folder)
+	emailIDs, err := s.getAllEmailIDs()
 	if err != nil {
 		return nil, 0, err
 	}
 	var emailHeaders []EmailHeader
 	for _, emailID := range emailIDs {
-		multipart, err := loadEmailFromID(s.folder, emailID)
+		multipart, err := s.loadEmailFromID(emailID)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -211,12 +249,26 @@ func (s *filesystemStorage) load(rootStorage Storage) error {
 func (s *filesystemStorage) setWithID(emailID string, message *mail.Message) error {
 	log.Logf(log.INFO, "saving email %v", emailID)
 	// create the file
-	file, err := os.Create(filepath.Join(s.folder, emailID+".eml"))
+	emailFilename := s.getEmailFilename(emailID)
+	file, err := os.Create(emailFilename)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-
+	switch s.filesystemType {
+	case FileStorageTypeEML:
+		// nothing to do
+	case FileStorageTypeMailhog:
+		// write a fake mailhog header
+		var header string
+		header += "HELO:<fake-server>\n"
+		header += "FROM:<fake-sender@exmaple.com>\n"
+		header += "TO:<fake-recipient@example.com\n"
+		header += "\n"
+		if _, err := file.WriteString(header); err != nil {
+			return err
+		}
+	}
 	// write the email to the file
 	writer := bufio.NewWriter(file)
 	for key, values := range message.Header {
@@ -237,31 +289,49 @@ func (s *filesystemStorage) setWithID(emailID string, message *mail.Message) err
 		return err
 	}
 	// check if we can parse the email
-	_, err = loadEmailFromID(s.folder, emailID)
+	_, err = s.loadEmailFromID(emailID)
 	if err != nil {
 		// delete the file
-		os.Remove(filepath.Join(s.folder, emailID+".eml"))
+		os.Remove(emailFilename)
 		return fmt.Errorf("cannot parse email %v: %v", emailID, err)
 	}
 	return nil
 }
 
-func getRawBody(folder, emailID string) ([]byte, error) {
-	file, err := os.Open(filepath.Join(folder, emailID+".eml"))
+func (s *filesystemStorage) getRawBody(emailID string) ([]byte, error) {
+	file, err := os.Open(s.getEmailFilename(emailID))
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
+	switch s.filesystemType {
+	case FileStorageTypeEML:
+		// nothing to do
+	case FileStorageTypeMailhog:
+		err = skipMailhogHeader(file)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// read the complete file
 	return io.ReadAll(file)
 }
 
-func loadEmailFromID(folder, emailID string) (*multipart.Multipart, error) {
-	file, err := os.Open(filepath.Join(folder, emailID+".eml"))
+func (s *filesystemStorage) loadEmailFromID(emailID string) (*multipart.Multipart, error) {
+	file, err := os.Open(s.getEmailFilename(emailID))
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
+	switch s.filesystemType {
+	case FileStorageTypeEML:
+		// nothing to do
+	case FileStorageTypeMailhog:
+		err = skipMailhogHeader(file)
+		if err != nil {
+			return nil, err
+		}
+	}
 	message, err := mail.ReadMessage(file)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse email %v: %v", emailID, err)
@@ -272,6 +342,29 @@ func loadEmailFromID(folder, emailID string) (*multipart.Multipart, error) {
 		return nil, fmt.Errorf("cannot parse email %v: %v", emailID, err)
 	}
 	return multipart, nil
+}
+
+// readMailhogHeader reads the mailhog header from the file
+// it reads until the first empty line
+func skipMailhogHeader(file *os.File) error {
+	reader := bufio.NewReader(file)
+	var totalBytesRead int64
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		totalBytesRead += int64(len(line))
+		if line == "\n" || line == "\r\n" {
+			// set the file pointer to the start of the body
+			_, err = file.Seek(totalBytesRead, io.SeekStart)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+	return nil
 }
 
 func newEmailHeaderFromMultiPart(ID string, multipart *multipart.Multipart) EmailHeader {
@@ -305,9 +398,10 @@ func newEmailAddressFromAddress(address mail.Address) EmailAddress {
 	}
 }
 
-func getAllEmailIDs(folder string) ([]string, error) {
+func (s *filesystemStorage) getAllEmailIDs() ([]string, error) {
 	// list all files in the folder
-	filenames, err := filepath.Glob(filepath.Join(folder, "*.eml"))
+	fileSuffix := s.filesystemType.GetFileSuffix()
+	filenames, err := filepath.Glob(filepath.Join(s.folder, "*"+fileSuffix))
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +410,7 @@ func getAllEmailIDs(folder string) ([]string, error) {
 	for _, filename := range filenames {
 		// remove the folder and the extension
 		emailID := filepath.Base(filename)
-		emailID = emailID[:len(emailID)-4]
+		emailID = emailID[:len(emailID)-len(fileSuffix)]
 		emailIDs = append(emailIDs, emailID)
 	}
 	return emailIDs, nil

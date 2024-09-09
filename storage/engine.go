@@ -55,7 +55,11 @@ func NewEngine(storagesConfiguration []StorageLayerConfiguration) (*Engine, erro
 			if !ok {
 				return nil, fmt.Errorf("missing folder parameter for FILESYSTEM storage")
 			}
-			physical, err := newFilesystemStorage(folder)
+			filesystemType, ok := storage.Parameters["type"]
+			if !ok {
+				return nil, fmt.Errorf("missing type parameter for FILESYSTEM storage")
+			}
+			physical, err := newFilesystemStorage(folder, filesystemType)
 			if err != nil {
 				return nil, err
 			}

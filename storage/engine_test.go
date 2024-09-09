@@ -57,6 +57,7 @@ func TestNewEngineOneStorageLayer(t *testing.T) {
 				Type: "FILESYSTEM",
 				Parameters: map[string]string{
 					"folder": "test-folder",
+					"type":   "eml",
 				},
 			},
 		},
@@ -235,6 +236,7 @@ func TestNewEngineThreeStorageLayers(t *testing.T) {
 			Type: "FILESYSTEM",
 			Parameters: map[string]string{
 				"folder": "test-folder",
+				"type":   "eml",
 			},
 		},
 	}
