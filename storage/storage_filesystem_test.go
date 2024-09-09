@@ -106,8 +106,10 @@ func TestEMLStorage(t *testing.T) {
 	}
 	// check that split/sort the email lines returns the same arrays
 	// this is required because the mail parser is reordering the headers
-	sortedLinesExpected := sort.StringSlice(strings.Split(simpleEmail, "\n"))
-	sortedLinesRetrieved := sort.StringSlice(strings.Split(string(retrievedMessage), "\n"))
+	sortedLinesExpected := strings.Split(simpleEmail, "\n")
+	sort.Strings(sortedLinesExpected)
+	sortedLinesRetrieved := strings.Split(string(retrievedMessage), "\n")
+	sort.Strings(sortedLinesRetrieved)
 	if len(sortedLinesExpected) != len(sortedLinesRetrieved) {
 		t.Errorf("expected same number of lines, got %d and %d", len(sortedLinesExpected), len(sortedLinesRetrieved))
 	}
@@ -162,8 +164,10 @@ func TestMailhogStorage(t *testing.T) {
 	}
 	// check that split/sort the email lines returns the same arrays
 	// this is required because the mail parser is reordering the headers
-	sortedLinesExpected := sort.StringSlice(strings.Split(simpleEmail, "\n"))
-	sortedLinesRetrieved := sort.StringSlice(strings.Split(string(retrievedMessage), "\n"))
+	sortedLinesExpected := strings.Split(simpleEmail, "\n")
+	sort.Strings(sortedLinesExpected)
+	sortedLinesRetrieved := strings.Split(string(retrievedMessage), "\n")
+	sort.Strings(sortedLinesRetrieved)
 	if len(sortedLinesExpected) != len(sortedLinesRetrieved) {
 		t.Errorf("expected same number of lines, got %d and %d", len(sortedLinesExpected), len(sortedLinesRetrieved))
 	}
