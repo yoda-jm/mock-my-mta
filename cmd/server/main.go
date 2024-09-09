@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// start smtp server
-	startSmtpServer(config.Smtpd.Addr, storageEngine, config.Smtpd.RelayAddr)
+	startSmtpServer(config.Smtpd.Addr, storageEngine, config.Smtpd.Relay)
 	// start http server
 	startHttpServer(config.Httpd, storageEngine)
 
@@ -125,15 +125,15 @@ func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
 	return nil
 }
 
-func startSmtpServer(addr string, storageEngine *storage.Engine, relayAddress string) {
-	server := newSmtpServer(addr, storageEngine, relayAddress)
+func startSmtpServer(addr string, storageEngine *storage.Engine, relayConfiguration RelayConfiguration) {
+	server := newSmtpServer(addr, storageEngine, relayConfiguration)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "SMTP server recovered from panic: %v", r)
 				// sleep for a while to avoid a tight loop
 				time.Sleep(1 * time.Second)
-				startSmtpServer(addr, storageEngine, relayAddress) // Restart the server if panic occurs
+				startSmtpServer(addr, storageEngine, relayConfiguration) // Restart the server if panic occurs
 			}
 		}()
 

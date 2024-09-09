@@ -20,9 +20,27 @@ type Configuration struct {
 }
 
 type SmtpdConfiguration struct {
-	Addr      string `json:"addr"`
-	RelayAddr string `json:"relay-addr"`
+	Addr  string             `json:"addr"`
+	Relay RelayConfiguration `json:"relay"`
 }
+
+type RelayConfiguration struct {
+	Enabled  bool          `json:"enabled"`
+	Addr     string        `json:"addr"`
+	TLS      bool          `json:"tls"`
+	Username string        `json:"username"`
+	Password string        `json:"password"`
+	AuthMode RelayAuthMode `json:"mode"`
+}
+
+type RelayAuthMode string
+
+const (
+	RelayAuthModeNone    RelayAuthMode = "NONE"
+	RelayAuthModePlain   RelayAuthMode = "PLAIN"
+	RelayAuthModeLogin   RelayAuthMode = "LOGIN"
+	RelayAuthModeCramMD5 RelayAuthMode = "CRAM-MD5"
+)
 
 type HttpdConfiguration struct {
 	Addr  string `json:"addr"`

@@ -1,7 +1,15 @@
 {
 	"smtpd": {
 		"addr": ":1025",
-		"relay-addr": ""
+		"relay": {
+			"enabled": false,
+			"addr": "",
+			"port": 0,
+			"tls": false,
+			"username": "",
+			"password": "",
+			"mode": "PLAIN"
+		}
 	},
 	"httpd": {
 		"addr": ":8025",
