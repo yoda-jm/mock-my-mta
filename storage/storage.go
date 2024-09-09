@@ -13,6 +13,8 @@ type Storage interface {
 
 	// GetEmailByID returns an email by ID.
 	GetEmailByID(emailID string) (EmailHeader, error)
+	// DeleteAllEmails deletes all emails.
+	DeleteAllEmails() error
 	// DeleteEmailByID deletes an email by ID.
 	DeleteEmailByID(emailID string) error
 	// GetBodyVersion returns the body of an email by ID and version.

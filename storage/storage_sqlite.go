@@ -19,6 +19,11 @@ func newSqliteStorage(databaseFilename string) (*sqliteStorage, error) {
 	}, nil
 }
 
+// DeleteAllEmails implements Storage.
+func (*sqliteStorage) DeleteAllEmails() error {
+	return newUnimplementedMethodInLayerError("DeleteAllEmails", "sqliteStorage")
+}
+
 // DeleteEmailByID implements Storage.
 func (*sqliteStorage) DeleteEmailByID(emailID string) error {
 	return newUnimplementedMethodInLayerError("DeleteEmailByID", "sqliteStorage")

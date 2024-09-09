@@ -60,6 +60,27 @@ func newFilesystemStorage(folder string, filesystemTypeStr string) (*filesystemS
 	return &filesystemStorage{folder: folder, filesystemType: filesystemType}, nil
 }
 
+// DeleteAllEmails implements Storage.
+func (s *filesystemStorage) DeleteAllEmails() error {
+	// list all files in the folder
+	emailIDs, err := s.getAllEmailIDs()
+	if err != nil {
+		return err
+	}
+	// delete all emails
+	var errors []error
+	for _, emailID := range emailIDs {
+		err := s.DeleteEmailByID(emailID)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	if len(errors) > 0 {
+		return fmt.Errorf("errors: %v", errors)
+	}
+	return nil
+}
+
 // DeleteEmailByID implements Storage.
 func (s *filesystemStorage) DeleteEmailByID(emailID string) error {
 	filePath := s.getEmailFilename(emailID)

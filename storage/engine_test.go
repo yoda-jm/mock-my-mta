@@ -511,6 +511,10 @@ func (m *mockStorageLayer) DeleteEmailByID(emailID string) error {
 	return m.addCall("DeleteEmailByID", emailID)
 }
 
+func (m *mockStorageLayer) DeleteAllEmails() error {
+	return m.addCall("DeleteAllEmails")
+}
+
 func (m *mockStorageLayer) GetAttachment(emailID string, attachmentID string) (Attachment, error) {
 	return Attachment{}, m.addCall("GetAttachment", emailID, attachmentID)
 }

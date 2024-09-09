@@ -81,6 +81,26 @@ $(function () {
         refreshEmailList();
     });
 
+    $('#deleteAll').click(function () {
+        // Delete all emails
+        console.log('Deleting all emails');
+        $.ajax({
+            url: '/api/emails/',
+            type: 'DELETE',
+            success: function (data) {
+                // refresh the email list
+                console.log('All emails deleted');
+                refreshMailboxes();
+                refreshEmailList();
+                displayEmailList();
+            },
+            error: function (error) {
+                console.log('Error deleting emails');
+                console.log(error);
+            }
+        });
+    });
+
     function refreshMailboxes() {
         // Load mailboxes
         console.log('Refreshing mailboxes');
@@ -89,6 +109,8 @@ $(function () {
             url: '/api/mailboxes',
             type: 'GET',
             success: function (data) {
+                // clear mailboxList
+                $('#mailboxList').empty();
                 for (var i = 0; i < data.length; i++) {
                     // Add mailbox to mailboxList, allow text to overflow
                     var mailbox = data[i];

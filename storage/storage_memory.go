@@ -17,6 +17,11 @@ func newMemoryStorage() (*memoryStorage, error) {
 }
 
 // DeleteEmailByID implements Storage.
+func (*memoryStorage) DeleteAllEmails() error {
+	return newUnimplementedMethodInLayerError("DeleteAllEmails", "memoryStorage")
+}
+
+// DeleteEmailByID implements Storage.
 func (*memoryStorage) DeleteEmailByID(emailID string) error {
 	return newUnimplementedMethodInLayerError("DeleteEmailByID", "memoryStorage")
 }

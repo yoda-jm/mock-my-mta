@@ -56,6 +56,7 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 	apiRouter.HandleFunc(("/mailboxes"), s.getMailboxes).Methods("GET")
 	// Emails
 	apiRouter.HandleFunc("/emails/", s.getEmails).Methods("GET")
+	apiRouter.HandleFunc("/emails/", s.deleteEmails).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
@@ -301,6 +302,16 @@ type SearchEmailsResponse struct {
 	Emails []storage.EmailHeader `json:"emails"`
 	// FIXME: add a nice pagination result
 	Paginnation PaginnationResponse `json:"pagination"`
+}
+
+func (s *Server) deleteEmails(w http.ResponseWriter, r *http.Request) {
+	err := s.store.DeleteAllEmails()
+	if err != nil {
+		message := fmt.Sprintf("Internal Server Error: %v", err)
+		http.Error(w, message, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) getEmails(w http.ResponseWriter, r *http.Request) {

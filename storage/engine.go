@@ -95,6 +95,25 @@ func (e *Engine) load(rootStorage Storage) error {
 	return nil
 }
 
+// DeleteAllEmails implements Storage.
+func (e *Engine) DeleteAllEmails() error {
+	var errors []error
+	for _, storage := range e.storages {
+		err := storage.DeleteAllEmails()
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			errors = append(errors, err)
+		}
+	}
+	if len(errors) > 0 {
+		return fmt.Errorf("errors: %v", errors)
+	}
+	return nil
+}
+
 // DeleteEmailByID implements Storage.
 func (e *Engine) DeleteEmailByID(emailID string) error {
 	for _, storage := range e.storages {
