@@ -20,7 +20,32 @@ func (multipart Multipart) match(m interface{}) bool {
 	case matcher.AttachmentMatch:
 		return multipart.HasAttachments()
 	case matcher.PlainTextMatch:
-		return true // FIXME: implement
+		// check if the body contains the string
+		bodyVersions := multipart.GetBodyVersions()
+		for _, bodyVersion := range bodyVersions {
+			body, err := multipart.GetBody(bodyVersion)
+			if err != nil {
+				continue
+			}
+			if strings.Contains(body, mt.GetText()) {
+				return true
+			}
+		}
+		// check if the subject contains the string
+		if strings.Contains(multipart.GetSubject(), mt.GetText()) {
+			return true
+		}
+		// check if the from contains the string
+		if strings.Contains(multipart.GetFrom().Address, mt.GetText()) {
+			return true
+		}
+		// check if the recipients contain the string
+		for _, recipent := range multipart.GetRecipients() {
+			if strings.Contains(recipent.Address, mt.GetText()) {
+				return true
+			}
+		}
+		return false
 	case matcher.BeforeMatch:
 		if multipart.GetDate().Before(mt.GetDate()) {
 			return true
