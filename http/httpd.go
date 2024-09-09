@@ -136,6 +136,10 @@ func AttachProfiler(router *mux.Router) {
 }
 
 func locateFile(filesystem fs.FS, filepath string) (string, error) {
+	if filepath == "/" {
+		// serve index.html when the root path is requested
+		return "index.html", nil
+	}
 	// check if file exists
 	if stat, err := fs.Stat(filesystem, filepath); err == nil && !stat.IsDir() {
 		return filepath, nil

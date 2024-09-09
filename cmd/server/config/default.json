@@ -1,10 +1,10 @@
 {
 	"smtpd": {
-		"addr": ":8025",
+		"addr": ":1025",
 		"relay-addr": ""
 	},
 	"httpd": {
-		"addr": ":8080",
+		"addr": ":8025",
 		"debug": false
 	},
 	"storages": [
