@@ -20,7 +20,8 @@
 		{
 			"type": "FILESYSTEM",
 			"parameters": {
-				"folder": "new-data"
+				"folder": "new-data",
+				"type": "eml"
 			}
 		}
 	],
