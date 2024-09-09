@@ -80,8 +80,10 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 		filename, err := locateFile(filesystem, r.URL.Path)
 		if err != nil {
 			// file not found, serve index.html instead
+			log.Logf(log.INFO, "file not found: %v, defaulting to index.html", r.URL.Path)
 			filename = "index.html"
 		}
+		log.Logf(log.DEBUG, "serving file: %v", filename)
 		content, err := fs.ReadFile(filesystem, filename)
 		if err != nil {
 			fileSystemType := "embedded"
@@ -93,7 +95,20 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 			http.Error(w, message, http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "text/html")
+		// determine content type based on file extension
+		fileExtension := strings.ToLower(filename[strings.LastIndex(filename, ".")+1:])
+		switch fileExtension {
+		case "html":
+			w.Header().Set("Content-Type", "text/html")
+		case "css":
+			w.Header().Set("Content-Type", "text/css")
+		case "js":
+			w.Header().Set("Content-Type", "application/javascript")
+		case "json":
+			w.Header().Set("Content-Type", "application/json")
+		default:
+			w.Header().Set("Content-Type", http.DetectContentType(content))
+		}
 		w.Write(content)
 	})
 
