@@ -111,7 +111,7 @@ func TestEngineSetWithNoDate(t *testing.T) {
 	engine := &Engine{
 		storages: []storageLayer{newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))},
 	}
-	err := engine.Set(&mail.Message{Header: mail.Header{}})
+	_, err := engine.Set(&mail.Message{Header: mail.Header{}})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestEngineSetWithDate(t *testing.T) {
 		storages: []storageLayer{newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))},
 	}
 	date := time.Now()
-	err := engine.Set(&mail.Message{Header: mail.Header{"Date": []string{date.Format(time.RFC1123Z)}}})
+	_, err := engine.Set(&mail.Message{Header: mail.Header{"Date": []string{date.Format(time.RFC1123Z)}}})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestEngineSetWithInvalidDate(t *testing.T) {
 	engine := &Engine{
 		storages: []storageLayer{newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))},
 	}
-	err := engine.Set(&mail.Message{Header: mail.Header{"Date": []string{"invalid-date"}}})
+	_, err := engine.Set(&mail.Message{Header: mail.Header{"Date": []string{"invalid-date"}}})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

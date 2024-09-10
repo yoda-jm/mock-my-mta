@@ -67,6 +67,7 @@
                         <tr>
                             <th>From</th>
                             <th>Preview</th>
+                            <th><!-- has attachment --></th>
                             <th>Date</th>
                             <th>Actions</th>
                         </tr>
@@ -78,8 +79,9 @@
             </div>
             <div class="email-view">
                 <div class="d-flex justify-content-between mb-3">
-                    <i class="bi bi-arrow-left icon"></i>
-                    <i class="bi bi-trash icon"></i>
+                    <i class="bi bi-arrow-left icon" title="Back..."></i>
+                    <i class="bi bi-envelope-arrow-up icon" title="Release..."></i>
+                    <i class="bi bi-trash icon" title="Delete"></i>
                 </div>
                 <div class="email-header">
                     <!-- Email header goes here -->
@@ -96,6 +98,79 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal for releasing email -->
+    <!-- Release Email Modal -->
+    <div class="modal fade" id="releaseEmailModal" tabindex="-1" aria-labelledby="releaseEmailModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="releaseEmailModalLabel">Release Email</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="releaseEmailForm">
+                        <!-- Email ID -->
+                        <div class="mb-3">
+                            <label for="emailId" class="form-label">Email ID</label>
+                            <input type="text" class="form-control" id="emailId" readonly>
+                        </div>
+                        <!-- Relay Configuration Select -->
+                        <div class="mb-3">
+                            <label for="relayConfig" class="form-label">Relay Configuration</label>
+                            <select class="form-select" id="relayConfig" name="relayConfig">
+                                <!-- Dynamic relay configurations go here -->
+                                <option value="" selected>None</option>
+                            </select>
+                        </div>
+                        <!-- Sender Selection Radio -->
+                        <div class="mb-3">
+                            <label class="form-label">Sender</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="senderOption" id="senderOriginal"
+                                    value="original" checked>
+                                <label class="form-check-label" for="senderOriginal">Original Sender</label>
+                                <input type="text" class="form-control" id="originalSender" readonly
+                                    value="">
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="senderOption" id="senderOverride"
+                                    value="override">
+                                <label class="form-check-label" for="senderOverride">Override Sender</label>
+                                <input type="text" class="form-control" id="overrideSender"
+                                    placeholder="Enter override sender" disabled>
+                            </div>
+                        </div>
+                        <!-- Receivers Selection Radio -->
+                        <div class="mb-3">
+                            <label class="form-label">Receivers</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="receiversOption" id="receiversOriginal"
+                                    value="original" checked>
+                                <label class="form-check-label" for="receiversOriginal">Original Receivers</label>
+                                <input type="text" class="form-control" id="originalReceivers" readonly
+                                    value="receiver1@example.com, receiver2@example.com">
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="receiversOption" id="receiversOverride"
+                                    value="override">
+                                <label class="form-check-label" for="receiversOverride">Override Receivers</label>
+                                <input type="text" class="form-control" id="overrideReceivers"
+                                    placeholder="Enter override receivers" disabled>
+                            </div>
+                        </div>
+                        <!-- Release Button -->
+                        <button type="button" class="btn btn-primary" id="releaseEmailButton">Release</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error popup  -->
+    <div id="popup-container" class="popup-container position-fixed top-0 end-0 p-3"></div>
 
     <script src="script.js"></script>
 

@@ -6,18 +6,20 @@
 .left-pane {
     width: 250px;
     border-right: 1px solid #ccc;
+    overflow-y: auto;
+    padding-right: 0px !important;
 }
 
 .right-pane {
+    width: calc(100vw - 250px);
     flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .mailboxes {
     list-style: none;
     padding: 0;
-    max-height: 100vh;
-    overflow-y: auto;
-    overflow-x: hidden;
 }
 
 .mailboxes li {
@@ -33,17 +35,39 @@
 }
 
 .email-list {
-    height: calc(100vh - 240px);
+    width: 100%;
+    flex: 1;
+    height: 100vh;
     overflow-y: auto;
 }
 
 .email-table {
-    width: 100%;
+    table-layout: auto;
+    border-collapse: collapse;
 }
 
 .email-item {
     border-bottom: 1px solid #eee;
     cursor: pointer;
+}
+
+.email-item i.bi {
+    margin-right: 10px;
+}
+
+.email-item td.preview {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 1%;
+}
+
+.email-item td.sender {
+    white-space: nowrap;
+}
+
+.email-item td.date {
+    white-space: nowrap;
 }
 
 .search-box,
@@ -91,4 +115,37 @@
     border: none; /* Removes border */
     background: transparent; /* Makes background transparent */
 }
-  
+
+.popup-container {
+    z-index: 5000; /* Ensure it appears above other elements */
+}
+
+.popup-message {
+    margin-top: 10px;
+    border-radius: 5px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    color: white;
+    padding: 10px;
+    min-width: 250px;
+}
+
+.popup-message .btn-close {
+    color: white;
+}
+
+.popup-message.info {
+    background-color: #17a2b8;
+}
+
+.popup-message.success {
+    background-color: #28a745;
+}
+
+.popup-message.warning {
+    background-color: #ffc107;
+    color: black;
+}
+
+.popup-message.error {
+    background-color: #dc3545;
+}

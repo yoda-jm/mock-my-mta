@@ -20,6 +20,84 @@ $(function () {
         $('.email-view').show();
     }
 
+    function displayReleaseModal(emailId) {
+        $.ajax({
+            url: '/api/emails/' + emailId + '/relay',
+            type: 'GET',
+            success: function (data) {
+                // log data
+                console.log(data);
+                modal = $('#releaseEmailModal');
+                // fill the modal with the data
+                $('#emailId').val(emailId);
+                $('#originalSender').val(data.sender.address);
+                $('#originalReceivers').val(data.recipients.map(function (recipient) { return recipient.address; }).join(', '));
+                // clear the relay configs select options
+                $('#relayConfig').empty();
+                for (var i = 0; i < data.relay_names.length; i++) {
+                    var configName = data.relay_names[i];
+                    $('#relayConfig').append($('<option>').val(configName).text(configName));
+                }
+                // display modal
+                modal.modal('show');
+            },
+        });
+    }
+
+    $('#releaseEmailButton').on('click', function() {
+        var emailId = $('#emailId').val();
+        var relayName = $('#relayConfig').val();
+        var sender = '';
+        if ($('#senderOverride').is(':checked')) {
+            sender = $('#overrideSender').val();
+        } else {
+            sender = $('#originalSender').val();
+        }
+        var recipients = [];
+        if ($('#receiversOverride').is(':checked')) {
+            recipients = $('#overrideReceivers').val().split(',').map(function (recipient) { return recipient.trim(); });
+        } else {
+            recipients = $('#originalReceivers').val().split(',').map(function (recipient) { return recipient.trim(); });
+        }
+        var formData = {
+            relay_name: relayName,
+            sender: sender,
+            recipients: recipients
+        };
+        $.ajax({
+            url: '/api/emails/' + emailId + '/relay',
+            type: 'POST',
+            data: JSON.stringify(formData),
+            success: function (data) {
+                // log data
+                console.log(data);
+                // close the modal
+                $('#releaseEmailModal').modal('hide');
+            },
+            error: function (jqXHR, textStatus, errorThrown ) {
+                showPopup(jqXHR.responseText, 'error');
+            }
+        });
+    });
+
+    // Enable/Disable override sender input based on radio selection
+    $('input[name="senderOption"]').on('change', function() {
+        if ($('#senderOverride').is(':checked')) {
+            $('#overrideSender').prop('disabled', false);
+        } else {
+            $('#overrideSender').prop('disabled', true).val('');
+        }
+    });
+
+    // Enable/Disable override receivers input based on radio selection
+    $('input[name="receiversOption"]').on('change', function() {
+        if ($('#receiversOverride').is(':checked')) {
+            $('#overrideReceivers').prop('disabled', false);
+        } else {
+            $('#overrideReceivers').prop('disabled', true).val('');
+        }
+    });
+
     $('.bi-x-lg').click(function () {
         setSearchQuery('');
         resetCurrentPage()
@@ -334,14 +412,26 @@ $(function () {
 
     function generateEmailListItem(email) {
         return $('<tr class="email-item">')
-            .append($('<td>').append(formatEmailAddress(email.from)))
-            .append($('<td>').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
-            .append($('<td>').text(formatDateTime(email.date)))
-            .append($('<td>').append(
-                $('<i class="bi bi-trash icon">'))
-                .click(function () {
-                    deleteEmail(email.id);
-                })
+            .append($('<td class="sender">').append(formatEmailAddress(email.from)))
+            .append($('<td class="preview">').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
+            .append($('<td>').append(email.has_attachments ? $('<i class="bi bi-paperclip icon">') : ''))
+            .append($('<td class="date">').text(formatDateTime(email.date)))
+            .append($('<td>')
+                .append(
+                    $('<i class="bi bi-trash icon" title="Delete">')
+                    .click(function (event) {
+                        event.stopPropagation();
+                        console.log('Deleting email ' + email.id);
+                        deleteEmail(email.id);
+                    }))
+                .append(
+                    $('<i class="bi bi-envelope-arrow-up icon" title="Release...">')
+                    .click(function (event) {
+                        // prevent cascade
+                        event.stopPropagation();
+                        console.log('Releasing email ' + email.id);
+                        displayReleaseModal(email.id);
+                    }))
             )
             .click(function () {
                 console.log('Displaying email ' + email.id);
@@ -413,5 +503,39 @@ $(function () {
             }
         }
         return formattedAddresses;
+    }
+
+    function showPopup(message, type = 'info') {
+        // Define message types and Bootstrap 5 classes
+        let popupClass = 'info';
+        switch(type) {
+            case 'success':
+                popupClass = 'success';
+                break;
+            case 'warning':
+                popupClass = 'warning';
+                break;
+            case 'error':
+                popupClass = 'error';
+                break;
+        }
+    
+        // Create the popup HTML
+        const popupHTML = `
+            <div class="popup-message ${popupClass} alert alert-${type} alert-dismissible fade show">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+    
+        // Append the popup to the container
+        const $popup = $(popupHTML).appendTo('#popup-container');
+    
+        // Automatically remove the popup after 5 seconds
+        setTimeout(function() {
+            $popup.fadeOut(function() {
+                $(this).remove();
+            });
+        }, 5000);
     }
 });

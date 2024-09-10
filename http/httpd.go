@@ -16,12 +16,15 @@ import (
 	"github.com/gorilla/mux"
 
 	"mock-my-mta/log"
+	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
 )
 
 type Server struct {
 	server *http.Server
 	addr   string
+
+	relayConfigurations smtp.RelayConfigurations
 
 	store storage.Storage
 }
@@ -38,10 +41,11 @@ func logf(requestID string, r *http.Request, level log.LogLevel, format string, 
 	log.Logf(level, logFormat, args...)
 }
 
-func NewServer(addr string, debug bool, store storage.Storage) *Server {
+func NewServer(config Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) *Server {
 	s := &Server{
-		addr:  addr,
-		store: store,
+		addr:                config.Addr,
+		relayConfigurations: relayConfigurations,
+		store:               store,
 	}
 
 	// Create a new Gorilla Mux router
@@ -60,13 +64,14 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/relay", s.getRelayData).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/relay", s.relayMessage).Methods("POST")
 	// Attachments
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/", s.getAttachments).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}/content", s.getAttachmentContent).Methods("GET")
 	// return error if the requested route is not found
 	apiRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		logf(generateRequestID(), r, log.INFO, "Not Found: %v", r.URL.Path)
-		http.Error(w, "Not Found", http.StatusNotFound)
+		writeErrorResponse(w, http.StatusNotFound, "Not Found: %v", r.URL.Path)
 	})
 
 	// serve pprof routes
@@ -76,7 +81,7 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 	// Create GUI router
 	// Serve static files from the "static" directory or embedded filesystem
 	// depending on the debug flag
-	filesystem := getFileSystem(staticDir, debug)
+	filesystem := getFileSystem(staticDir, config.Debug)
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		filename, err := locateFile(filesystem, r.URL.Path)
 		if err != nil {
@@ -88,12 +93,10 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 		content, err := fs.ReadFile(filesystem, filename)
 		if err != nil {
 			fileSystemType := "embedded"
-			if debug {
+			if config.Debug {
 				fileSystemType = "local"
 			}
-			message := fmt.Sprintf("cannot read %q from %v filesystem: %v", filename, fileSystemType, err)
-			logf(generateRequestID(), r, log.ERROR, "error: %v", message)
-			http.Error(w, message, http.StatusInternalServerError)
+			writeErrorResponse(w, http.StatusInternalServerError, "cannot read %q from %v filesystem: %v", filename, fileSystemType, err)
 			return
 		}
 		// determine content type based on file extension
@@ -114,7 +117,7 @@ func NewServer(addr string, debug bool, store storage.Storage) *Server {
 	})
 
 	s.server = &http.Server{
-		Addr:    addr,
+		Addr:    config.Addr,
 		Handler: r,
 	}
 	return s
@@ -185,8 +188,7 @@ func (s *Server) getMailboxes(w http.ResponseWriter, r *http.Request) {
 	logf(generateRequestID(), r, log.DEBUG, "getting mailboxes")
 	mailboxes, err := s.store.GetMailboxes()
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get mailboxes: %v", err)
 		return
 	}
 
@@ -203,8 +205,7 @@ func (s *Server) getEmailByID(w http.ResponseWriter, r *http.Request) {
 	// Get the email by ID
 	email, err := s.store.GetEmailByID(emailID)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get email (id=%v): %v", emailID, err)
 		return
 	}
 
@@ -221,13 +222,89 @@ func (s *Server) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
 	// Delete the email by ID
 	err := s.store.DeleteEmailByID(emailID)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot delete email (id=%v): %v", emailID, err)
 		return
 	}
 
 	// Write the response
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type RelayData struct {
+	RelayNames []string               `json:"relay_names"`
+	Sender     storage.EmailAddress   `json:"sender"`
+	Recipients []storage.EmailAddress `json:"recipients"`
+}
+
+func (s *Server) getRelayData(w http.ResponseWriter, r *http.Request) {
+	// Get the email ID from the URL
+	vars := mux.Vars(r)
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "getting relay data by ID: %v", emailID)
+
+	// Get the email by ID
+	email, err := s.store.GetEmailByID(emailID)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get email (id=%v): %v", emailID, err)
+		return
+	}
+
+	// Write the response
+	relayData := RelayData{
+		RelayNames: s.relayConfigurations.Names(),
+		Sender:     email.From,
+		Recipients: append(email.Tos, email.CCs...),
+	}
+	writeJSONResponse(w, relayData)
+}
+
+type RelayMessageRequest struct {
+	RelayName  string   `json:"relay_name"`
+	Sender     string   `json:"sender"`
+	Recipients []string `json:"recipients"`
+}
+
+func (s *Server) relayMessage(w http.ResponseWriter, r *http.Request) {
+	// Get the email ID from the URL
+	vars := mux.Vars(r)
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "relaying message by ID: %v", emailID)
+
+	// Parse the request body
+	var request RelayMessageRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse request body: %v", err)
+		return
+	}
+
+	// Find the relay configuration by name
+	relayConfig, found := s.relayConfigurations.Get(request.RelayName)
+	if !found {
+		writeErrorResponse(w, http.StatusBadRequest, "relay %q not found", request.RelayName)
+		return
+	}
+
+	// Get the email by ID
+	rawData, err := s.store.GetBodyVersion(emailID, storage.EmailVersionRaw)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get email (id=%v): %v", emailID, err)
+		return
+	}
+
+	// Relay the message
+	logf(generateRequestID(), r, log.INFO, "relaying message to %v", relayConfig.Addr)
+	envelope := smtp.Envelope{
+		Sender:     request.Sender,
+		Recipients: request.Recipients,
+		Data:       []byte(rawData),
+	}
+
+	err = smtp.RelayMessage(relayConfig, emailID, envelope)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot relay message (id=%v): %v", emailID, err)
+		return
+	}
 }
 
 func (s *Server) getBodyVersion(w http.ResponseWriter, r *http.Request) {
@@ -238,16 +315,14 @@ func (s *Server) getBodyVersion(w http.ResponseWriter, r *http.Request) {
 	logf(generateRequestID(), r, log.DEBUG, "getting body version by ID: %v, version: %v", emailID, versionString)
 	version, err := storage.ParseEmailVersionType(versionString)
 	if err != nil {
-		message := fmt.Sprintf("Bad Request: invalid body version: %v", versionString)
-		http.Error(w, message, http.StatusBadRequest)
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse body version %v for email %v: %v", versionString, emailID, err)
 		return
 	}
 
 	// Get the body version by ID
 	body, err := s.store.GetBodyVersion(emailID, version)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get body version %v for email %v: %v", version, emailID, err)
 		return
 	}
 
@@ -264,8 +339,7 @@ func (s *Server) getAttachments(w http.ResponseWriter, r *http.Request) {
 	// Get all attachments for the specified email
 	attachments, err := s.store.GetAttachments(emailID)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get attachments for email %v: %v", emailID, err)
 		return
 	}
 
@@ -283,8 +357,7 @@ func (s *Server) getAttachmentContent(w http.ResponseWriter, r *http.Request) {
 	// Get the attachment content by ID
 	attachment, err := s.store.GetAttachment(emailID, attachmentID)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get attachment %v for email %v: %v", attachmentID, emailID, err)
 		return
 	}
 
@@ -311,8 +384,7 @@ type SearchEmailsResponse struct {
 func (s *Server) deleteEmails(w http.ResponseWriter, r *http.Request) {
 	err := s.store.DeleteAllEmails()
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot delete all emails: %v", err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -330,16 +402,14 @@ func (s *Server) getEmails(w http.ResponseWriter, r *http.Request) {
 	// Parse the page parameters
 	page, pageSize, err := parsePageParameters(r)
 	if err != nil {
-		message := fmt.Sprintf("Bad Request: %v", err)
-		http.Error(w, message, http.StatusBadRequest)
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse page parameters: %v", err)
 		return
 	}
 
 	// Perform the search
 	emailHeaders, totalMatches, err := s.store.SearchEmails(query, page, pageSize)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot search emails: %v", err)
 		return
 	}
 	isFirstPage := page == 1
@@ -366,9 +436,14 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		message := fmt.Sprintf("Internal Server Error: %v", err)
-		http.Error(w, message, http.StatusInternalServerError)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot encode JSON: %v", err)
 	}
+}
+
+func writeErrorResponse(w http.ResponseWriter, status int, messageFormat string, args ...interface{}) {
+	message := fmt.Sprintf(messageFormat, args...)
+	log.Logf(log.ERROR, "error: %v (status=%v)", message, status)
+	http.Error(w, message, status)
 }
 
 func parsePageParameters(r *http.Request) (int, int, error) {

@@ -11,6 +11,7 @@ import (
 
 	"mock-my-mta/http"
 	"mock-my-mta/log"
+	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
 )
 
@@ -72,9 +73,9 @@ func main() {
 	}
 
 	// start smtp server
-	startSmtpServer(config.Smtpd.Addr, storageEngine, config.Smtpd.Relay)
+	startSmtpServer(config.Smtpd, storageEngine)
 	// start http server
-	startHttpServer(config.Httpd, storageEngine)
+	startHttpServer(config.Httpd, config.Smtpd.Relays, storageEngine)
 
 	// Set up a signal handler to gracefully shutdown the servers on QUIT/TERM signals
 	quit := make(chan os.Signal, 1)
@@ -115,25 +116,26 @@ func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
 			log.Logf(log.ERROR, "error: cannot parse email from file %q: %v", filename, err)
 			continue
 		}
-		err = storageEngine.Set(email)
+		mailUUID, err := storageEngine.Set(email)
 		if err != nil {
 			log.Logf(log.ERROR, "error: cannot store email from file %q: %v", filename, err)
 			continue
 		}
+		log.Logf(log.INFO, "loaded email %v from file %q", mailUUID, filename)
 	}
 
 	return nil
 }
 
-func startSmtpServer(addr string, storageEngine *storage.Engine, relayConfiguration RelayConfiguration) {
-	server := newSmtpServer(addr, storageEngine, relayConfiguration)
+func startSmtpServer(config smtp.Configuration, storageEngine *storage.Engine) {
+	server := smtp.NewServer(config, storageEngine)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "SMTP server recovered from panic: %v", r)
 				// sleep for a while to avoid a tight loop
 				time.Sleep(1 * time.Second)
-				startSmtpServer(addr, storageEngine, relayConfiguration) // Restart the server if panic occurs
+				startSmtpServer(config, storageEngine) // Restart the server if panic occurs
 			}
 		}()
 
@@ -144,15 +146,15 @@ func startSmtpServer(addr string, storageEngine *storage.Engine, relayConfigurat
 	}()
 }
 
-func startHttpServer(config HttpdConfiguration, store storage.Storage) {
-	server := http.NewServer(config.Addr, config.Debug, store)
+func startHttpServer(config http.Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) {
+	server := http.NewServer(config, relayConfigurations, store)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "HTTP server recovered from panic: %v", r)
 				// sleep for a while to avoid a tight loop
 				time.Sleep(1 * time.Second)
-				startHttpServer(config, store) // Restart the server if panic occurs
+				startHttpServer(config, relayConfigurations, store) // Restart the server if panic occurs
 			}
 		}()
 

@@ -3,6 +3,8 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"mock-my-mta/http"
+	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
 	"os"
 )
@@ -13,38 +15,10 @@ import (
 var defaultConfigurationData []byte
 
 type Configuration struct {
-	Smtpd    SmtpdConfiguration                  `json:"smtpd"`
-	Httpd    HttpdConfiguration                  `json:"httpd"`
+	Smtpd    smtp.Configuration                  `json:"smtpd"`
+	Httpd    http.Configuration                  `json:"httpd"`
 	Storages []storage.StorageLayerConfiguration `json:"storages"`
 	Logging  LoggingConfiguration                `json:"logging"`
-}
-
-type SmtpdConfiguration struct {
-	Addr  string             `json:"addr"`
-	Relay RelayConfiguration `json:"relay"`
-}
-
-type RelayConfiguration struct {
-	Enabled  bool          `json:"enabled"`
-	Addr     string        `json:"addr"`
-	TLS      bool          `json:"tls"`
-	Username string        `json:"username"`
-	Password string        `json:"password"`
-	AuthMode RelayAuthMode `json:"mode"`
-}
-
-type RelayAuthMode string
-
-const (
-	RelayAuthModeNone    RelayAuthMode = "NONE"
-	RelayAuthModePlain   RelayAuthMode = "PLAIN"
-	RelayAuthModeLogin   RelayAuthMode = "LOGIN"
-	RelayAuthModeCramMD5 RelayAuthMode = "CRAM-MD5"
-)
-
-type HttpdConfiguration struct {
-	Addr  string `json:"addr"`
-	Debug bool   `json:"debug"`
 }
 
 type LoggingConfiguration struct {

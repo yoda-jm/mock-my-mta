@@ -1,14 +1,15 @@
 {
 	"smtpd": {
 		"addr": ":1025",
-		"relay": {
-			"enabled": false,
-			"addr": "",
-			"port": 0,
-			"tls": false,
-			"username": "",
-			"password": "",
-			"mode": "PLAIN"
+		"relays": {
+			"example": {
+				"enabled": false,
+				"auto-relay": false,
+				"addr": "localhost:25",
+				"username": "",
+				"password": "",
+				"mechanism": "PLAIN"
+			}
 		}
 	},
 	"httpd": {

@@ -226,7 +226,7 @@ func (e *Engine) SearchEmails(query string, page int, pageSize int) ([]EmailHead
 }
 
 // Set inserts a new email into the storage.
-func (e *Engine) Set(message *mail.Message) error {
+func (e *Engine) Set(message *mail.Message) (string, error) {
 	// generate a new ID
 	emailID := uuid.New().String()
 	// if date header are not present, use the current time
@@ -242,7 +242,7 @@ func (e *Engine) Set(message *mail.Message) error {
 	}
 	// prefix ID with RFC date time
 	emailID = date.Format(time.RFC3339) + "-" + emailID
-	return e.setWithID(emailID, message)
+	return emailID, e.setWithID(emailID, message)
 }
 
 // setWithID inserts a new email into the storage.
