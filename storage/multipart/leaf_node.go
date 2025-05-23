@@ -1,7 +1,10 @@
 package multipart
 
 import (
+	"bytes"
 	"encoding/base64"
+	"io"
+	"mime/quotedprintable"
 	"strings"
 )
 
@@ -17,7 +20,7 @@ func (l leafNode) getHeaders() map[string][]string {
 	return l.headers
 }
 
-func (l leafNode) walfLeaves(fn walkLeavesFunc) walkStatus {
+func (l leafNode) walkLeaves(fn walkLeavesFunc) walkStatus {
 	return fn(l)
 }
 
@@ -31,16 +34,30 @@ func (l leafNode) isAttachment() bool {
 }
 
 func (l leafNode) GetDecodedBody() string {
-	body := string(l.getBody())
-	if l.getContentTransferEncoding() == "base64" {
-		// decode the body
-		decoded, err := base64.StdEncoding.DecodeString(body)
+	bodyBytes := l.getBody()
+	encoding := l.getContentTransferEncoding()
+
+	switch strings.ToLower(encoding) {
+	case "base64":
+		decoded, err := base64.StdEncoding.DecodeString(string(bodyBytes))
 		if err == nil {
-			body = string(decoded)
+			return string(decoded)
 		}
+		// Fallback to original body if base64 decoding fails
+		return string(bodyBytes)
+	case "quoted-printable":
+		qpr := quotedprintable.NewReader(bytes.NewReader(bodyBytes))
+		decodedBytes, err := io.ReadAll(qpr)
+		if err == nil {
+			return string(decodedBytes)
+		}
+		// Fallback to original body if QP decoding fails
+		return string(bodyBytes)
+	default:
+		// Includes "7bit", "8bit", binary, or no encoding specified
+		return string(bodyBytes)
 	}
 	// FIXME: read the charset from the Content-Type header and decode the body
-	return body
 }
 
 func (l leafNode) isPlainText() bool {

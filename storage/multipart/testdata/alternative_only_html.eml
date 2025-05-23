@@ -1,0 +1,12 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Alternative Only HTML
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="boundary_alternative"
+
+--boundary_alternative
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>This is the <b>HTML</b> part only.</p></body></html>
+--boundary_alternative--

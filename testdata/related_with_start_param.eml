@@ -1,0 +1,28 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Multipart/Related with Start Parameter
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	boundary="boundary_related_start";
+	type="text/html";
+	start="<root.html@example.com>"
+
+--boundary_related_start
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <image.other@example.com>
+Content-Disposition: inline; filename="other_image.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=
+
+--boundary_related_start
+Content-Type: text/html; charset="utf-8"
+Content-ID: <root.html@example.com>
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>This is the root HTML part, specified by the start paramete=
+r.</p>
+<img src=3D"cid:image.other@example.com">
+</body></html>
+
+--boundary_related_start--

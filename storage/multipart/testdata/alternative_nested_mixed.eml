@@ -1,0 +1,30 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Alternative nested in Mixed
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary_mixed"
+
+--boundary_mixed
+Content-Type: multipart/alternative; boundary="boundary_alternative"
+
+--boundary_alternative
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+This is the plain text part of the alternative.
+
+--boundary_alternative
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>This is the <b>HTML</b> part of the alternative.</p></body>=
+</html>
+--boundary_alternative--
+
+--boundary_mixed
+Content-Type: text/plain; charset="utf-8"
+Content-Disposition: attachment; filename="attachment.txt"
+Content-Transfer-Encoding: quoted-printable
+
+This is an attachment.
+--boundary_mixed--
