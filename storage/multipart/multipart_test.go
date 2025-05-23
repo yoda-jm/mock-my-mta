@@ -193,7 +193,7 @@ func TestParseMultipartEmailGetAttachments(t *testing.T) {
 		attachments := multipart.GetAttachments()
 		for id, att := range attachments {
 			t.Logf("Attachment [%s]: %v %v %v", id, att.GetContentType(), att.GetFilename(), att.GetSize())
-			t.Logf("Attachment body: %v", string(att.getBody())) // Use getBody (lowercase)
+			t.Logf("Attachment body: %v", string(att.GetBody())) // Use getBody (lowercase)
 		}
 	}
 }
@@ -453,8 +453,8 @@ func TestMultipartAlternative(t *testing.T) {
 		for _, att := range attachments {
 			if att.GetFilename() == "attachment.txt" {
 				foundAttachment = true
-				if !strings.Contains(string(att.getBody()), "This is an attachment.") {
-					t.Errorf("Attachment content incorrect: got %s", string(att.getBody()))
+				if !strings.Contains(string(att.GetBody()), "This is an attachment.") {
+					t.Errorf("Attachment content incorrect: got %s", string(att.GetBody()))
 				}
 			}
 		}
@@ -516,8 +516,8 @@ func TestMultipartAlternative(t *testing.T) {
 		for _, att := range attachments {
 			if att.GetFilename() == "attachment.txt" {
 				foundAttachment = true
-				if !strings.Contains(string(att.getBody()), "This is an attachment.") {
-					t.Errorf("Attachment content incorrect: got %s", string(att.getBody()))
+				if !strings.Contains(string(att.GetBody()), "This is an attachment.") {
+					t.Errorf("Attachment content incorrect: got %s", string(att.GetBody()))
 				}
 			}
 		}

@@ -9,22 +9,26 @@ import (
 )
 
 type leafNode struct {
-	headers map[string][]string
+	headers headers
 	body    []byte
 }
 
 // leaf node implements the node interface
 var _ node = leafNode{}
 
-func (l leafNode) getHeaders() map[string][]string {
+func (l leafNode) getHeaders() headers {
 	return l.headers
+}
+
+func (l leafNode) GetHeader(name string) []string {
+	return l.headers.get(name)
 }
 
 func (l leafNode) walkLeaves(fn walkLeavesFunc) walkStatus {
 	return fn(l)
 }
 
-func (l leafNode) getBody() []byte {
+func (l leafNode) GetBody() []byte {
 	return l.body
 }
 
@@ -34,7 +38,7 @@ func (l leafNode) isAttachment() bool {
 }
 
 func (l leafNode) GetDecodedBody() string {
-	bodyBytes := l.getBody()
+	bodyBytes := l.GetBody()
 	encoding := l.getContentTransferEncoding()
 
 	switch strings.ToLower(encoding) {
@@ -74,4 +78,12 @@ func (l leafNode) isWatchHTML() bool {
 
 func (l leafNode) getContentTransferEncoding() string {
 	return getHeaderValue(l, "Content-Transfer-Encoding")
+}
+
+func (l leafNode) GetContentID() string {
+	cid := getHeaderValue(l, "Content-ID")
+	// Trim angle brackets, if present
+	cid = strings.TrimPrefix(cid, "<")
+	cid = strings.TrimSuffix(cid, ">")
+	return cid
 }

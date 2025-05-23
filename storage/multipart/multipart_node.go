@@ -1,7 +1,7 @@
 package multipart
 
 type multipartNode struct {
-	headers         map[string][]string
+	headers         headers
 	parts           []node
 	RelatedStartCID string // Content-ID of the start part for multipart/related
 }
@@ -9,7 +9,7 @@ type multipartNode struct {
 // multipart node implements the node interface
 var _ node = multipartNode{}
 
-func (m multipartNode) getHeaders() map[string][]string {
+func (m multipartNode) getHeaders() headers {
 	return m.headers
 }
 

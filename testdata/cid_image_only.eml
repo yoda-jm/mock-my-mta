@@ -1,0 +1,25 @@
+Subject: Test CID Image Only
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="boundary1"
+
+--boundary1
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  </head>
+  <body>
+    <p>This email has an embedded image: <img src="cid:myimage123"></p>
+  </body>
+</html>
+
+--boundary1
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <myimage123>
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=
+
+--boundary1--

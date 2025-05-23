@@ -245,6 +245,22 @@ func (e *Engine) Set(message *mail.Message) (string, error) {
 	return emailID, e.setWithID(emailID, message)
 }
 
+// GetRawEmail returns the email with the given ID.
+func (e *Engine) GetRawEmail(emailID string) ([]byte, error) {
+	for _, storage := range e.storages {
+		message, err := storage.GetRawEmail(emailID)
+		if err != nil {
+			// check if the method is implemented
+			if _, ok := err.(*unimplementedMethodInLayerError); ok {
+				continue
+			}
+			return nil, err
+		}
+		return message, nil
+	}
+	return nil, fmt.Errorf("no storage layer implements GetRaEmail")
+}
+
 // setWithID inserts a new email into the storage.
 func (e *Engine) setWithID(emailID string, message *mail.Message) error {
 	for _, storage := range e.storages {

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	"mock-my-mta/log"
 	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
+	"mock-my-mta/storage/multipart"
 )
 
 type Server struct {
@@ -69,6 +71,7 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	// Attachments
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/", s.getAttachments).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}/content", s.getAttachmentContent).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/cid/{cid}", s.getPartByCID).Methods("GET")
 	// return error if the requested route is not found
 	apiRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusNotFound, "Not Found: %v", r.URL.Path)
@@ -326,6 +329,16 @@ func (s *Server) getBodyVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the body is HTML, replace cid: links
+	if version == storage.EmailVersionHtml || version == storage.EmailVersionWatchHtml {
+		// Regex to find src="cid:..." or src='cid:...'
+		// It captures the content of cid (the actual CID) in group 1
+		cidRegex := regexp.MustCompile(`src=["']cid:([^"']+)["']`)
+		// Replacement pattern uses $1 to refer to the captured group (the CID)
+		replacementPattern := fmt.Sprintf("src=\"/api/emails/%s/cid/$1\"", emailID)
+		body = cidRegex.ReplaceAllString(body, replacementPattern)
+	}
+
 	// Write the response
 	writeJSONResponse(w, body)
 }
@@ -365,6 +378,61 @@ func (s *Server) getAttachmentContent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+attachment.Filename)
 	w.Header().Set("Content-Type", attachment.ContentType)
 	w.Write(attachment.Data)
+}
+
+func (s *Server) getPartByCID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	emailID := vars["email_id"]
+	cid := vars["cid"]
+	requestID := generateRequestID()
+	logf(requestID, r, log.DEBUG, "getting part by email ID: %v, CID: %v", emailID, cid)
+
+	// Get the raw email data first
+	rawEmail, err := s.store.GetRawEmail(emailID)
+	if err != nil {
+		logf(requestID, r, log.ERROR, "cannot get raw email (id=%v): %v", emailID, err)
+		if strings.Contains(err.Error(), "not found") { // Basic check, could be more robust
+			writeErrorResponse(w, http.StatusNotFound, "email not found: %v", emailID)
+		} else {
+			writeErrorResponse(w, http.StatusInternalServerError, "cannot get raw email (id=%v): %v", emailID, err)
+		}
+		return
+	}
+
+	// Parse the email
+	// Note: We need to use the multipart package directly here for ParseEmailFromBytes
+	parsedMail, err := multipart.ParseEmailFromBytes(rawEmail)
+	if err != nil {
+		logf(requestID, r, log.ERROR, "cannot parse email (id=%v): %v", emailID, err)
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot parse email (id=%v): %v", emailID, err)
+		return
+	}
+
+	// Get the part by CID
+	part, found := parsedMail.GetPartByCID(cid)
+	if !found {
+		logf(requestID, r, log.DEBUG, "part with CID %v not found in email %v", cid, emailID)
+		writeErrorResponse(w, http.StatusNotFound, "part with CID %s not found", cid)
+		return
+	}
+
+	// Get part's content type and body
+	contentType := part.GetHeader("Content-Type") // This should provide the full content type string
+	if len(contentType) == 0 {
+		logf(requestID, r, log.WARNING, "part with CID %v in email %v has no Content-Type header", cid, emailID)
+		// Default to application/octet-stream if Content-Type is missing
+		w.Header().Set("Content-Type", "application/octet-stream")
+	} else {
+		w.Header().Set("Content-Type", contentType[0])
+	}
+
+	body := part.GetDecodedBody()
+
+	// Write the response
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	// Consider adding "Content-Disposition: inline" if appropriate for typical CID uses (like images)
+	// w.Header().Set("Content-Disposition", "inline")
+	w.Write([]byte(body))
 }
 
 type PaginnationResponse struct {

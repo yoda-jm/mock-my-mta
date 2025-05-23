@@ -1,0 +1,26 @@
+Subject: Test CID and External Images
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="boundary2"
+
+--boundary2
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  </head>
+  <body>
+    <p>This email has an embedded image: <img src="cid:myimage456"></p>
+    <p>And an external image: <img src="https://via.placeholder.com/60"></p>
+  </body>
+</html>
+
+--boundary2
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <myimage456>
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPgAAACEAMZoRjZAAAAAASUVORK5CYII=
+
+--boundary2--

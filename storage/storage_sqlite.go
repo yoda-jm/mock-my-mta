@@ -59,6 +59,11 @@ func (*sqliteStorage) SearchEmails(query string, page int, pageSize int) ([]Emai
 	return nil, 0, newUnimplementedMethodInLayerError("SearchEmails", "sqliteStorage")
 }
 
+// GetRawEmail implements Storage.
+func (*sqliteStorage) GetRawEmail(emailID string) ([]byte, error) {
+	return nil, newUnimplementedMethodInLayerError("GetRawEmail", "sqliteStorage")
+}
+
 // Load loads the storage based on the root storage
 func (*sqliteStorage) load(rootStorage Storage) error {
 	// FIXME: implement

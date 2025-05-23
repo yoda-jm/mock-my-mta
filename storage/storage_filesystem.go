@@ -252,6 +252,11 @@ func (s *filesystemStorage) SearchEmails(query string, page int, pageSize int) (
 	return emailHeaders[start:end], totalMatches, nil
 }
 
+// GetRawEmail implements Storage.
+func (s *filesystemStorage) GetRawEmail(emailID string) ([]byte, error) {
+	return s.getRawBody(emailID)
+}
+
 // Load loads the storage based on the root storage
 func (s *filesystemStorage) load(rootStorage Storage) error {
 	// check that the folder exists

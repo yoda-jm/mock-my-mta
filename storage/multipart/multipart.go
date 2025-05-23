@@ -1,6 +1,7 @@
 package multipart
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"mime"
@@ -23,8 +24,29 @@ const (
 	stopWalk
 )
 
+type headers struct {
+	// headers is a map of headers (case insensitive)
+	// keys are stored in lower case
+	values map[string][]string
+}
+
+func newHeaders(values map[string][]string) headers {
+	h := headers{
+		values: make(map[string][]string),
+	}
+	for k, v := range values {
+		h.values[strings.ToLower(k)] = v
+	}
+	return h
+}
+
+// getValues returns the values of the header with the given name (case insensitive)
+func (h headers) get(name string) []string {
+	return h.values[strings.ToLower(name)]
+}
+
 type node interface {
-	getHeaders() map[string][]string
+	getHeaders() headers
 	walkLeaves(fn walkLeavesFunc) walkStatus
 }
 
@@ -40,7 +62,19 @@ func New(message *mail.Message) (*Multipart, error) {
 	return &Multipart{node: node}, nil
 }
 
-func parseMail(headers map[string][]string, bodyReader io.Reader) (node, error) {
+// ParseEmailFromBytes takes raw email bytes, parses them into a mail.Message,
+// and then into a multipart.Multipart object.
+func ParseEmailFromBytes(rawEmail []byte) (*Multipart, error) {
+	reader := bytes.NewReader(rawEmail)
+	msg, err := mail.ReadMessage(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read message from bytes: %w", err)
+	}
+	return New(msg)
+}
+
+func parseMail(headersMap map[string][]string, bodyReader io.Reader) (node, error) {
+	headers := newHeaders(headersMap)
 	// find media type and boundary
 	contentType := getContentType(headers)
 	mediaType := "text/plain"
@@ -419,6 +453,28 @@ func (mp Multipart) GetBodyVersions() []string {
 	return versions
 }
 
+func (mp Multipart) GetPartByCID(cid string) (leafNode, bool) {
+	var foundNode leafNode
+	found := false
+
+	walkNodes(mp.node, "", func(n node, parentContentType string) walkStatus {
+		if leaf, ok := n.(leafNode); ok {
+			// Do not consider attachments as inline parts, CIDs are usually for inline images.
+			// if leaf.isAttachment() {
+			// 	return continueWalk
+			// }
+			if leaf.GetContentID() == cid || leaf.GetContentID() == "<"+cid+">" {
+				foundNode = leaf
+				found = true
+				return stopWalk
+			}
+		}
+		return continueWalk
+	})
+
+	return foundNode, found
+}
+
 func decodeHeader(header string) string {
 	dec := new(mime.WordDecoder)
 	decoded, err := dec.DecodeHeader(header)
@@ -473,7 +529,7 @@ func stringIndent(n node, indent string) string {
 }
 
 func getHeaderValues(n node, key string) []string {
-	values, _ := n.getHeaders()[key]
+	values := n.getHeaders().get(key)
 	return values
 }
 
@@ -485,8 +541,8 @@ func getHeaderValue(n node, key string) string {
 	return values[0]
 }
 
-func getContentType(headers map[string][]string) string {
-	contentTypes, _ := headers["Content-Type"]
+func getContentType(headers headers) string {
+	contentTypes := headers.get("Content-Type")
 	if len(contentTypes) == 0 {
 		return ""
 	}

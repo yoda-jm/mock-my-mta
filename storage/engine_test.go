@@ -539,6 +539,10 @@ func (m *mockStorageLayer) SearchEmails(query string, page int, pageSize int) ([
 	return nil, 0, m.addCall("SearchEmails", query, page, pageSize)
 }
 
+func (m *mockStorageLayer) GetRawEmail(emailID string) ([]byte, error) {
+	return nil, m.addCall("GetRawEmail", emailID)
+}
+
 func (m *mockStorageLayer) load(rootStorage Storage) error {
 	return m.addCall("load", rootStorage)
 }

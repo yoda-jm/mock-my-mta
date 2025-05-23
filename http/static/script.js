@@ -10,6 +10,34 @@ $(function () {
         displayEmailList();
     });
 
+    // Function to process images based on the toggle state
+    function processEmailImages(shadowRoot) {
+        if (!shadowRoot) return;
+
+        const displayExternal = $('#displayExternalImagesToggle').is(':checked');
+        const images = shadowRoot.querySelectorAll('img');
+
+        images.forEach(img => {
+            const originalSrc = img.getAttribute('src');
+            // Check if the src exists and starts with http:// or https://
+            if (originalSrc && (originalSrc.startsWith('http://') || originalSrc.startsWith('https://'))) {
+                if (displayExternal) {
+                    img.style.display = ''; // Show the image
+                } else {
+                    img.style.display = 'none'; // Hide the image
+                }
+            }
+        });
+    }
+
+    // Event listener for the toggle switch
+    $('#displayExternalImagesToggle').on('change', function() {
+        const host = document.querySelectorAll('.email-content')[0];
+        if (host && host.shadowRoot) {
+            processEmailImages(host.shadowRoot);
+        }
+    });
+
     function displayEmailList() {
         $('.email-view').hide();
         $('.email-list').show();
@@ -312,16 +340,26 @@ $(function () {
         $('.email-content').empty();
         var shadowRoot = openShadowRootNotExisting();
         // FIXME: why is the CSP not working?
-        shadowRoot.innerHTML = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">';
+        // shadowRoot.innerHTML = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'">';
+        shadowRoot.innerHTML = ""; // Clear previous content before adding new
+
         if (selectedBodyVersion == 'raw') {
-            shadowRoot.appendChild($('<pre>').text(data)[0]);
-        } else if (selectedBodyVersion == 'html') {
-            shadowRoot.innerHTML += data;
+            const pre = document.createElement('pre');
+            pre.textContent = data;
+            shadowRoot.appendChild(pre);
+        } else if (selectedBodyVersion == 'html' || selectedBodyVersion == 'watch-html') {
+            // Directly set innerHTML for HTML content.
+            // The Content-Security-Policy meta tag should be part of the HTML string itself if needed,
+            // or set via HTTP headers by the server.
+            // For script.js, ensure `data` is trusted or sanitized if it can contain user-generated HTML with scripts.
+            shadowRoot.innerHTML = '<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; img-src \'self\' http: https: data:;">' + data; // Overwrite, don't append with += if clearing first
         } else if (selectedBodyVersion == 'plain-text') {
-            shadowRoot.appendChild($('<pre>').text(data)[0]);
-        } else if (selectedBodyVersion == 'watch-html') {
-            shadowRoot.innerHTML += data;
+            const pre = document.createElement('pre');
+            pre.textContent = data;
+            shadowRoot.appendChild(pre);
         }
+        // Process images after content is set
+        processEmailImages(shadowRoot);
     }
 
     function updateEmailBody(selectedBodyVersion, emailId) {

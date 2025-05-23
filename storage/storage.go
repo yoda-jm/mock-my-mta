@@ -27,6 +27,8 @@ type Storage interface {
 
 	// SearchEmails searches for emails with pagination. It also returns the total number of matches.
 	SearchEmails(query string, page, pageSize int) ([]EmailHeader, int, error)
+	// GetRawEmail returns the raw email content by ID.
+	GetRawEmail(emailID string) ([]byte, error)
 }
 
 type storageLayer interface {

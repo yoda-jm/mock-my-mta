@@ -56,6 +56,11 @@ func (*memoryStorage) SearchEmails(query string, page int, pageSize int) ([]Emai
 	return nil, 0, newUnimplementedMethodInLayerError("SearchEmails", "memoryStorage")
 }
 
+// GetRawEmail implements Storage.
+func (*memoryStorage) GetRawEmail(emailID string) ([]byte, error) {
+	return nil, newUnimplementedMethodInLayerError("GetRawEmail", "memoryStorage")
+}
+
 // Load loads the storage based on the root storage
 func (*memoryStorage) load(rootStorage Storage) error {
 	// FIXME: implement
