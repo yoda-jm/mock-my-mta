@@ -17,10 +17,10 @@ type Server struct {
 	server        *smtpd.Server
 	configuration Configuration
 
-	storageEngine *storage.Engine
+	storageEngine storage.StorageService
 }
 
-func NewServer(config Configuration, storageEngine *storage.Engine) *Server {
+func NewServer(config Configuration, storageEngine storage.StorageService) *Server {
 	s := &Server{
 		configuration: config,
 		storageEngine: storageEngine,
@@ -131,8 +131,10 @@ func RelayMessage(relayConfiguration RelayConfiguration, uuid string, envelope E
 		return fmt.Errorf("unsupported relay auth mode: %v", relayConfiguration.Mechanism)
 	}
 	log.Logf(log.INFO, "relaying message %v (addr=%v auth=%v, sender=%v, recipients=%v)", uuid, relayConfiguration.Addr, relayConfiguration.Mechanism, envelope.Sender, envelope.Recipients)
-	return smtp.SendMail(relayConfiguration.Addr, auth, envelope.Sender, envelope.Recipients, envelope.Data)
+	return smtpSendMailFn(relayConfiguration.Addr, auth, envelope.Sender, envelope.Recipients, envelope.Data)
 }
+
+var smtpSendMailFn = smtp.SendMail
 
 // LoginAuth implements the smtp.Auth interface for the LOGIN authentication mechanism
 var _ smtp.Auth = &loginAuth{}

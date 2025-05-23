@@ -220,7 +220,7 @@ func TestParseCustomDuration(t *testing.T) {
 		name     string
 		duration string
 		expected time.Duration
-		err	     error
+		err      error
 	}{
 		// cutom duration cases
 		{"1d", "1d", 24 * time.Hour, nil},
@@ -246,10 +246,10 @@ func TestParseCustomDuration(t *testing.T) {
 		{"1us", "1us", 1 * time.Microsecond, nil},
 		{"1ns", "1ns", 1 * time.Nanosecond, nil},
 		// combined standard duration cases
-		{"1h1m", "1h1m", 1 * time.Hour + 1 * time.Minute, nil},
-		{"1h1m1s", "1h1m1s", 1 * time.Hour + 1 * time.Minute + 1 * time.Second, nil},
-		{"1h1m1s1ms", "1h1m1s1ms", 1 * time.Hour + 1 * time.Minute + 1 * time.Second + 1 * time.Millisecond, nil},
-		{"1h1m1s1ms1us", "1h1m1s1ms1us", 1 * time.Hour + 1 * time.Minute + 1 * time.Second + 1 * time.Millisecond + 1 * time.Microsecond, nil},
+		{"1h1m", "1h1m", 1*time.Hour + 1*time.Minute, nil},
+		{"1h1m1s", "1h1m1s", 1*time.Hour + 1*time.Minute + 1*time.Second, nil},
+		{"1h1m1s1ms", "1h1m1s1ms", 1*time.Hour + 1*time.Minute + 1*time.Second + 1*time.Millisecond, nil},
+		{"1h1m1s1ms1us", "1h1m1s1ms1us", 1*time.Hour + 1*time.Minute + 1*time.Second + 1*time.Millisecond + 1*time.Microsecond, nil},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
