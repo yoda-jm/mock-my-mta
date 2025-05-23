@@ -9,7 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"mock-my-mta/http"
+	// Import for configuration types and loading functions
+	mtahttp "mock-my-mta/http" // Alias for this project's http package
 	"mock-my-mta/log"
 	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
@@ -28,18 +29,19 @@ func main() {
 	if len(configurationFile) > 0 {
 		var err error
 		log.Logf(log.INFO, "loading configuration from %q", configurationFile)
-		config, err = readConfigurationFile(configurationFile)
+		config, err = LoadConfig(configurationFile)
 		if err != nil {
 			log.Logf(log.FATAL, "error: failed to read engine config: %v", err)
 		}
 	} else {
 		var err error
 		log.Logf(log.INFO, "loading default configuration")
-		config, err = loadDefaultConfiguration()
+		config, err = LoadDefaultConfiguration()
 		if err != nil {
 			log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
 		}
 	}
+
 	log.SetMinimumLogLevel(log.ParseLogLevel(config.Logging.Level))
 	log.Logf(log.INFO, "starting mock-my-mta")
 	storageEngine, err := storage.NewEngine(config.Storages)
@@ -74,6 +76,7 @@ func main() {
 
 	// start smtp server
 	startSmtpServer(config.Smtpd, storageEngine)
+
 	// start http server
 	startHttpServer(config.Httpd, config.Smtpd.Relays, storageEngine)
 
@@ -146,8 +149,8 @@ func startSmtpServer(config smtp.Configuration, storageEngine *storage.Engine) {
 	}()
 }
 
-func startHttpServer(config http.Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) {
-	server := http.NewServer(config, relayConfigurations, store)
+func startHttpServer(config mtahttp.Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) {
+	server := mtahttp.NewServer(config, relayConfigurations, store)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

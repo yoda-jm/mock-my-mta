@@ -3,10 +3,11 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
+	"os"
+
 	"mock-my-mta/http"
 	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
-	"os"
 )
 
 // embedded default configuration
@@ -14,6 +15,7 @@ import (
 //go:embed config/default.json
 var defaultConfigurationData []byte
 
+// Configuration holds the application configurations
 type Configuration struct {
 	Smtpd    smtp.Configuration                  `json:"smtpd"`
 	Httpd    http.Configuration                  `json:"httpd"`
@@ -34,7 +36,8 @@ func parseConfiguration(data []byte) (Configuration, error) {
 	return config, nil
 }
 
-func readConfigurationFile(filename string) (Configuration, error) {
+// LoadConfig reads the main configuration file
+func LoadConfig(filename string) (Configuration, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return Configuration{}, err
@@ -42,6 +45,7 @@ func readConfigurationFile(filename string) (Configuration, error) {
 	return parseConfiguration(data)
 }
 
-func loadDefaultConfiguration() (Configuration, error) {
+// LoadDefaultConfiguration parses the default configuration data.
+func LoadDefaultConfiguration() (Configuration, error) {
 	return parseConfiguration(defaultConfigurationData)
 }

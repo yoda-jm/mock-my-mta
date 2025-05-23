@@ -72,6 +72,8 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/", s.getAttachments).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/attachments/{attachment_id}/content", s.getAttachmentContent).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/cid/{cid}", s.getPartByCID).Methods("GET")
+	// Filter suggestions
+	apiRouter.HandleFunc("/filters/suggestions", getFilterSuggestions).Methods("GET")
 	// return error if the requested route is not found
 	apiRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusNotFound, "Not Found: %v", r.URL.Path)
