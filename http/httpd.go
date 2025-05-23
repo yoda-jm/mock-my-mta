@@ -16,11 +16,54 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
+	configuration "mock-my-mta/cmd/server/configtypes"
 	"mock-my-mta/log"
 	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
 	"mock-my-mta/storage/multipart"
 )
+
+// HandleFilterSuggestions provides search filter command suggestions.
+// - If 'term' query parameter is provided and not empty, it filters suggestions by command and returns an array of suggestion strings.
+// - If 'term' is not provided or is empty, it returns the full list of FilterSyntaxEntry objects.
+func HandleFilterSuggestions(w http.ResponseWriter, r *http.Request, filterSyntax []configuration.FilterSyntaxEntry) {
+	term := strings.ToLower(r.URL.Query().Get("term"))
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if len(filterSyntax) == 0 {
+		// If there's no filter syntax configured, return empty list regardless of term
+		w.Write([]byte("[]")) // Empty JSON array
+		return
+	}
+
+	if term != "" {
+		// Filter by term and return only suggestion strings
+		var suggestions []string
+		for _, entry := range filterSyntax {
+			if strings.HasPrefix(strings.ToLower(entry.Command), term) {
+				suggestions = append(suggestions, entry.Suggestion)
+			}
+		}
+		if suggestions == nil { // Ensure empty array, not null
+			suggestions = []string{}
+		}
+		js, err := json.Marshal(suggestions)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(js)
+	} else {
+		// No term, return full filter syntax entries
+		js, err := json.Marshal(filterSyntax)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(js)
+	}
+}
 
 type Server struct {
 	server *http.Server

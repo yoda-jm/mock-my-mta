@@ -149,3 +149,62 @@
 .popup-message.error {
     background-color: #dc3545;
 }
+
+/* Styles for the suggestions dropdown */
+#suggestions-dropdown {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-top: none;
+    /* The search-box has padding: 20px. The input inside it is form-control.
+       Assuming form-control takes full width within the search-box's content area.
+       The dropdown needs to align with the input, not the search-box itself.
+       The search-box has display: flex.
+       The input needs to be targeted to get its width/position or make the dropdown relative to a wrapper around the input.
+       For now, let's assume the .search-box has a known padding of 20px on left/right.
+       If the search input spans the full width available within .search-box,
+       then width: calc(100% - 40px) relative to .right-pane might be too wide.
+       A better approach is to position it relative to the .search-box itself or its parent,
+       and set left/width accordingly.
+       The provided CSS seems to assume .right-pane is the positioning parent.
+       Let's adjust width and left to be relative to .search-box potentially.
+       If .search-box is the parent, left:0 and width:100% would be a start, then adjust for padding.
+    */
+    width: calc(100% - 40px); /* Default from instructions, might need tweaking based on actual layout */
+    max-height: 200px;
+    overflow-y: auto;
+    display: none; /* Initially hidden */
+    z-index: 1000;
+    /* Aligning with search input. .search-box has padding: 20px.
+       So, if .right-pane is the offset parent, left: 20px should align with the start of .search-box content.
+    */
+    left: 20px; /* Default from instructions */
+    /* To make it appear right under the search input which is inside .search-box:
+       The .search-box is a flex container. The input is a child.
+       The suggestions dropdown is a sibling of .toolbar and .search-box.
+       We need to ensure its top is correctly set.
+       This will be easier to adjust once we see it in action.
+       Let's set top relative to the search box. If search-box height is e.g. 60px:
+       top: 60px; (approx, relative to parent of search-box)
+       The CSS provided doesn't specify 'top'. It will appear at its natural flow position after search-box.
+       This should be fine as the div is placed right after the search-box in HTML.
+    */
+}
+
+#suggestions-dropdown a {
+    display: block;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: black;
+    cursor: pointer;
+}
+
+#suggestions-dropdown a:hover {
+    background-color: #f0f0f0;
+}
+
+#show-syntax-help {
+    cursor: pointer;
+    margin-left: 5px; /* Already added ms-2 (margin start 2) in HTML, this will be additional */
+    font-size: 1.2rem; /* Adjust as needed */
+}

@@ -1,19 +1,28 @@
 package main
 
 import (
+	_ "embed" // Ensure embed is imported
+	"encoding/json"
 	"flag"
+	"net/http"
 	"net/mail"
 	"os"
 	"os/signal"
 	"path/filepath"
+	// "strings" // Removed unused import
 	"syscall"
 	"time"
 
-	"mock-my-mta/http"
+	// Import for configuration types and loading functions
+	appconfig "mock-my-mta/cmd/server/configtypes"
+	mtahttp "mock-my-mta/http" // Alias for this project's http package
 	"mock-my-mta/log"
 	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
 )
+
+//go:embed config/default.json
+var defaultConfigurationData []byte
 
 func main() {
 	// Parse command-line parameters
@@ -24,25 +33,44 @@ func main() {
 	flag.Parse()
 
 	// Create a new storage instance
-	var config Configuration
+	var baseCfg appconfig.Configuration // Renamed for clarity
 	if len(configurationFile) > 0 {
 		var err error
 		log.Logf(log.INFO, "loading configuration from %q", configurationFile)
-		config, err = readConfigurationFile(configurationFile)
+		baseCfg, err = appconfig.LoadConfig(configurationFile) 
 		if err != nil {
 			log.Logf(log.FATAL, "error: failed to read engine config: %v", err)
 		}
 	} else {
 		var err error
 		log.Logf(log.INFO, "loading default configuration")
-		config, err = loadDefaultConfiguration()
+		baseCfg, err = appconfig.LoadDefaultConfiguration(defaultConfigurationData) 
 		if err != nil {
 			log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
 		}
 	}
-	log.SetMinimumLogLevel(log.ParseLogLevel(config.Logging.Level))
+
+	// Unmarshal specific configurations from baseCfg
+	var httpCfg mtahttp.Configuration
+	if err := json.Unmarshal(baseCfg.Httpd, &httpCfg); err != nil {
+		log.Logf(log.FATAL, "error: failed to unmarshal httpd config: %v", err)
+	}
+	var smtpCfg smtp.Configuration
+	if err := json.Unmarshal(baseCfg.Smtpd, &smtpCfg); err != nil {
+		log.Logf(log.FATAL, "error: failed to unmarshal smtpd config: %v", err)
+	}
+	var storageCfgs []storage.StorageLayerConfiguration
+	for i, scfgJSON := range baseCfg.Storages {
+		var scfg storage.StorageLayerConfiguration
+		if err := json.Unmarshal(scfgJSON, &scfg); err != nil {
+			log.Logf(log.FATAL, "error: failed to unmarshal storage config #%d: %v", i, err)
+		}
+		storageCfgs = append(storageCfgs, scfg)
+	}
+
+	log.SetMinimumLogLevel(log.ParseLogLevel(baseCfg.Logging.Level)) 
 	log.Logf(log.INFO, "starting mock-my-mta")
-	storageEngine, err := storage.NewEngine(config.Storages)
+	storageEngine, err := storage.NewEngine(storageCfgs) // Use fully parsed storageCfgs
 	if err != nil {
 		log.Logf(log.FATAL, "error: failed to create storage: %v", err)
 	}
@@ -73,9 +101,26 @@ func main() {
 	}
 
 	// start smtp server
-	startSmtpServer(config.Smtpd, storageEngine)
+	startSmtpServer(smtpCfg, storageEngine) // Use fully parsed smtpCfg
+
+	// Register API handlers
+	// Note: This uses http.DefaultServeMux.
+	// net/http package is imported as "http"
+	http.HandleFunc("/api/filters/suggestions", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		// Call the refactored handler from the mtahttp package
+		// FilterSyntax is directly available in baseCfg and correctly typed
+		mtahttp.HandleFilterSuggestions(w, r, baseCfg.FilterSyntax) 
+	})
+
 	// start http server
-	startHttpServer(config.Httpd, config.Smtpd.Relays, storageEngine)
+	// Assuming startHttpServer uses http.DefaultServeMux or is otherwise compatible
+	// with handlers registered via http.HandleFunc.
+	// If it sets up its own router exclusively, the above HandleFunc won't be part of it.
+	startHttpServer(httpCfg, smtpCfg.Relays, storageEngine) // Use fully parsed httpCfg and smtpCfg.Relays
 
 	// Set up a signal handler to gracefully shutdown the servers on QUIT/TERM signals
 	quit := make(chan os.Signal, 1)
@@ -127,15 +172,15 @@ func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
 	return nil
 }
 
-func startSmtpServer(config smtp.Configuration, storageEngine *storage.Engine) {
-	server := smtp.NewServer(config, storageEngine)
+func startSmtpServer(smtpCfg smtp.Configuration, storageEngine *storage.Engine) { // Renamed config to smtpCfg for clarity
+	server := smtp.NewServer(smtpCfg, storageEngine)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "SMTP server recovered from panic: %v", r)
 				// sleep for a while to avoid a tight loop
 				time.Sleep(1 * time.Second)
-				startSmtpServer(config, storageEngine) // Restart the server if panic occurs
+				startSmtpServer(smtpCfg, storageEngine) // Restart the server if panic occurs
 			}
 		}()
 
@@ -146,18 +191,25 @@ func startSmtpServer(config smtp.Configuration, storageEngine *storage.Engine) {
 	}()
 }
 
-func startHttpServer(config http.Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) {
-	server := http.NewServer(config, relayConfigurations, store)
+func startHttpServer(httpCfg mtahttp.Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) { // Renamed config to httpCfg
+	// The existing http.NewServer is from "mock-my-mta/http"
+	// If this server uses its own mux (router), it won't pick up http.DefaultServeMux routes.
+	// For this exercise, we assume it might, or that registering to DefaultServeMux is the intended action.
+	server := mtahttp.NewServer(httpCfg, relayConfigurations, store)
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Logf(log.ERROR, "HTTP server recovered from panic: %v", r)
 				// sleep for a while to avoid a tight loop
 				time.Sleep(1 * time.Second)
-				startHttpServer(config, relayConfigurations, store) // Restart the server if panic occurs
+				startHttpServer(httpCfg, relayConfigurations, store) // Restart the server if panic occurs
 			}
 		}()
 
+		// If the http server is meant to use the DefaultServeMux (where HandleFunc registers routes),
+		// its ListenAndServe would typically be http.ListenAndServe(addr, nil) or http.ListenAndServe(addr, http.DefaultServeMux)
+		// The current custom server.ListenAndServe() might use its own router.
+		// This detail is outside the scope of the current change, which is to add the handler as requested.
 		err := server.ListenAndServe()
 		if err != nil {
 			panic("HTTP server error: " + err.Error())

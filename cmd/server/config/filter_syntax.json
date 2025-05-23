@@ -1,0 +1,42 @@
+[
+  {
+    "command": "mailbox",
+    "suggestion": "mailbox:<name>",
+    "description": "Search for emails in a specific mailbox."
+  },
+  {
+    "command": "has",
+    "suggestion": "has:attachment",
+    "description": "Search for emails that have attachments."
+  },
+  {
+    "command": "before",
+    "suggestion": "before:<YYYY-MM-DD>",
+    "description": "Search for emails received before a specific date."
+  },
+  {
+    "command": "after",
+    "suggestion": "after:<YYYY-MM-DD>",
+    "description": "Search for emails received after a specific date."
+  },
+  {
+    "command": "from",
+    "suggestion": "from:<email_address>",
+    "description": "Search for emails from a specific sender."
+  },
+  {
+    "command": "subject",
+    "suggestion": "subject:<text>",
+    "description": "Search for emails with specific text in the subject."
+  },
+  {
+    "command": "older_than",
+    "suggestion": "older_than:<duration>",
+    "description": "Search for emails older than a duration (e.g., 7d, 2w, 1m, 1y). Supports d, w, month, y and Go's time.ParseDuration format (e.g. 24h, 720h)."
+  },
+  {
+    "command": "newer_than",
+    "suggestion": "newer_than:<duration>",
+    "description": "Search for emails newer than a duration (e.g., 7d, 2w, 1m, 1y). Supports d, w, month, y and Go's time.ParseDuration format (e.g. 24h, 720h)."
+  }
+]

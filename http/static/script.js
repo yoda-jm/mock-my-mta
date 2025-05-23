@@ -1,4 +1,142 @@
 $(function () {
+    const searchInput = $('.search-box input[type="text"]');
+    const suggestionsDropdown = $('#suggestions-dropdown');
+
+    function clearSuggestions() {
+        suggestionsDropdown.empty();
+    }
+
+    function clearAndHideDropdown() {
+        clearSuggestions();
+        suggestionsDropdown.hide();
+        suggestionsDropdown.removeData('tokenStart');
+        suggestionsDropdown.removeData('currentTokenLength');
+    }
+
+    // Add a document click listener to hide dropdown if clicked outside
+    $(document).on('click', function(event) {
+        // Check if the click target is not the search input and not part of the suggestions dropdown
+        if (!$(event.target).is(searchInput) && !$(event.target).closest(suggestionsDropdown).length) {
+            clearAndHideDropdown();
+        }
+    });
+
+    searchInput.on('keyup', function (e) {
+        // Ignore arrow keys, shift, ctrl, alt, meta, escape, enter for suggestion logic
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 
+             'Shift', 'Control', 'Alt', 'Meta', 'Escape', 'Enter'].includes(e.key)) {
+            if (e.key === 'Escape') clearAndHideDropdown(); // Still hide on escape
+            // Potentially handle ArrowUp/Down for selecting suggestions later if needed
+            return; 
+        }
+
+        const fullText = $(this).val();
+        const cursorPos = this.selectionStart; // `this` is the input element
+        const textBeforeCursor = fullText.substring(0, cursorPos);
+        
+        const lastSpace = textBeforeCursor.lastIndexOf(' ');
+        const tokenStart = (lastSpace === -1) ? 0 : lastSpace + 1;
+        const currentToken = textBeforeCursor.substring(tokenStart);
+
+        suggestionsDropdown.data('tokenStart', tokenStart);
+        suggestionsDropdown.data('currentTokenLength', currentToken.length);
+
+        if (currentToken.trim() === '') {
+            clearAndHideDropdown();
+            return;
+        }
+
+        $.ajax({
+            url: `/api/filters/suggestions?term=${encodeURIComponent(currentToken)}`,
+            type: 'GET',
+            success: function (data) {
+                clearSuggestions();
+                if (data && data.length > 0) {
+                    data.forEach(function (suggestionText) {
+                        const link = $('<a></a>')
+                            .text(suggestionText)
+                            .attr('href', '#') // Make it look like a link
+                            .on('click', function (ev) {
+                                ev.preventDefault(); // Prevent page jump
+
+                                const storedTokenStart = suggestionsDropdown.data('tokenStart');
+                                const storedCurrentTokenLength = suggestionsDropdown.data('currentTokenLength');
+                                const currentFullText = searchInput.val();
+                                
+                                const textBeforeToken = currentFullText.substring(0, storedTokenStart);
+                                const textAfterCompletedToken = currentFullText.substring(storedTokenStart + storedCurrentTokenLength);
+                                
+                                const clickedSuggestionText = $(this).text();
+                                
+                                const newText = textBeforeToken + clickedSuggestionText + " " + textAfterCompletedToken.trimStart();
+                                searchInput.val(newText);
+                                
+                                const newCursorPos = (textBeforeToken + clickedSuggestionText + " ").length;
+                                // Use native setSelectionRange for better cursor control
+                                searchInput[0].setSelectionRange(newCursorPos, newCursorPos); 
+                                
+                                clearAndHideDropdown();
+                                searchInput.focus();
+                                // DO NOT call updateSearchBoxAndRefreshEmailList here
+                            });
+                        suggestionsDropdown.append(link);
+                    });
+                    suggestionsDropdown.show();
+                } else {
+                    suggestionsDropdown.hide();
+                }
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.error('Error fetching suggestions:', textStatus, errorThrown);
+                clearAndHideDropdown();
+            }
+        });
+    });
+
+    searchInput.on('blur', function () {
+        // Delay hiding to allow click on suggestion
+        setTimeout(clearAndHideDropdown, 150);
+    });
+
+    $(document).on('keydown', function (e) {
+        if (e.key === "Escape") { // Modern browsers use "Escape"
+            clearAndHideDropdown();
+        }
+    });
+
+    // Event listener for the syntax help icon
+    $('#show-syntax-help').on('click', function () {
+        $.ajax({
+            url: '/api/filters/suggestions', // No 'term' parameter
+            type: 'GET',
+            success: function (data) {
+                const syntaxHelpTableBody = $('#syntaxHelpTableBody');
+                syntaxHelpTableBody.empty(); // Clear previous content
+
+                if (data && data.length > 0) {
+                    data.forEach(function (entry) {
+                        const row = $('<tr>');
+                        row.append($('<td>').text(entry.command));
+                        row.append($('<td>').text(entry.suggestion));
+                        row.append($('<td>').text(entry.description));
+                        syntaxHelpTableBody.append(row);
+                    });
+                } else {
+                    // Optionally, display a message if no syntax help is available
+                    syntaxHelpTableBody.append('<tr><td colspan="3" class="text-center">No syntax help available.</td></tr>');
+                }
+
+                // Show the modal
+                const helpModal = new bootstrap.Modal($('#syntaxHelpModal')[0]);
+                helpModal.show();
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                console.error('Error fetching syntax help:', textStatus, errorThrown);
+                showPopup('Could not load syntax help: ' + errorThrown, 'error');
+            }
+        });
+    });
+
     // initialize tooltips
     $('[title]').tooltip();
     // initialize the search
@@ -239,6 +377,7 @@ $(function () {
     function updateSearchBoxAndRefreshEmailList(query) {
         // Update the search box and submit the form
         console.log('Updating search box and submitting form');
+        clearAndHideDropdown(); // Hide suggestions when a search is explicitly triggered
         setSearchQuery(query);
         resetCurrentPage()
         refreshEmailList()
