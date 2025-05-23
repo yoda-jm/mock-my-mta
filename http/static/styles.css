@@ -274,3 +274,35 @@ Note: For the "Delete All Messages" button:
         padding-left: 0; If left-pane was pushing it
     } */
 }
+
+/* Styles for search input suggestions */
+.search-input-container {
+    position: relative;
+    flex-grow: 1; /* Takes up available space in the flex container .search-box */
+}
+
+.search-box .search-input-container input.form-control {
+    background-color: transparent;
+    position: relative;
+    z-index: 2;
+}
+
+#suggestion-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    font-family: inherit; /* Inherit from .form-control */
+    font-size: inherit; /* Inherit from .form-control */
+    color: grey; /* Or #888 */
+    padding: .375rem .75rem; /* Matches Bootstrap 5 .form-control padding */
+    line-height: 1.5; /* Matches Bootstrap 5 .form-control line-height */
+    pointer-events: none;
+    z-index: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex; /* To align text vertically, similar to input */
+    align-items: center; /* Vertical alignment */
+}

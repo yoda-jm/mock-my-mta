@@ -35,12 +35,14 @@
         </div>
         <div class="right-pane">
             <div class="search-box">
-                <input type="text" class="form-control" placeholder="Search emails...">
+                <div class="search-input-container">
+                    <div id="suggestion-display"></div>
+                    <input type="text" class="form-control" placeholder="Search emails...">
+                </div>
                 <i class="bi bi-question-circle ms-2 icon" id="show-syntax-help" title="Show syntax help"></i>
                 <i class="bi bi-x-lg ms-2 icon"></i>
                 <i class="bi bi-search ms-2 icon"></i>
             </div>
-            <div id="suggestions-dropdown" class="dropdown-menu"></div>
             <div class="toolbar d-flex justify-content-between align-items-center px-3">
                 <div class="toolbar-left">
                     <button id="refresh" class="btn">

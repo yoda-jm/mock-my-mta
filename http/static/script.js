@@ -1,32 +1,21 @@
 $(function () {
     const searchInput = $('.search-box input[type="text"]');
-    const suggestionsDropdown = $('#suggestions-dropdown');
-
-    function clearSuggestions() {
-        suggestionsDropdown.empty();
-    }
-
-    function clearAndHideDropdown() {
-        clearSuggestions();
-        suggestionsDropdown.hide();
-        suggestionsDropdown.removeData('tokenStart');
-        suggestionsDropdown.removeData('currentTokenLength');
-    }
+    const suggestionDisplay = $('#suggestion-display');
 
     // Add a document click listener to hide dropdown if clicked outside
-    $(document).on('click', function(event) {
-        // Check if the click target is not the search input and not part of the suggestions dropdown
-        if (!$(event.target).is(searchInput) && !$(event.target).closest(suggestionsDropdown).length) {
-            clearAndHideDropdown();
-        }
-    });
+    // $(document).on('click', function(event) { // OLD LOGIC - REMOVE
+    //     // Check if the click target is not the search input and not part of the suggestions dropdown
+    //     if (!$(event.target).is(searchInput) && !$(event.target).closest(suggestionsDropdown).length) { // OLD LOGIC - REMOVE
+    //         clearAndHideDropdown(); // OLD LOGIC - REMOVE
+    //     }
+    // });
 
     searchInput.on('keyup', function (e) {
         // Ignore arrow keys, shift, ctrl, alt, meta, escape, enter for suggestion logic
+        // Arrow keys, shift, ctrl, alt, meta, escape, enter are handled by keydown or ignored for suggestion purposes
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
-             'Shift', 'Control', 'Alt', 'Meta', 'Escape', 'Enter'].includes(e.key)) {
-            if (e.key === 'Escape') clearAndHideDropdown(); // Still hide on escape
-            // Potentially handle ArrowUp/Down for selecting suggestions later if needed
+             'Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+            // Escape and Enter are handled in keydown
             return;
         }
 
@@ -38,11 +27,11 @@ $(function () {
         const tokenStart = (lastSpace === -1) ? 0 : lastSpace + 1;
         const currentToken = textBeforeCursor.substring(tokenStart);
 
-        suggestionsDropdown.data('tokenStart', tokenStart);
-        suggestionsDropdown.data('currentTokenLength', currentToken.length);
+        // suggestionsDropdown.data('tokenStart', tokenStart); // OLD LOGIC - REMOVE
+        // suggestionsDropdown.data('currentTokenLength', currentToken.length); // OLD LOGIC - REMOVE
 
         if (currentToken.trim() === '') {
-            clearAndHideDropdown();
+            suggestionDisplay.text(''); // MODIFIED
             return;
         }
 
@@ -50,59 +39,75 @@ $(function () {
             url: `/api/filters/suggestions?term=${encodeURIComponent(currentToken)}`,
             type: 'GET',
             success: function (data) {
-                clearSuggestions();
+                // clearSuggestions(); // OLD LOGIC - REMOVE
                 if (data && data.length > 0) {
-                    data.forEach(function (suggestionText) {
-                        const link = $('<a></a>')
-                            .text(suggestionText)
-                            .attr('href', '#') // Make it look like a link
-                            .on('click', function (ev) {
-                                ev.preventDefault(); // Prevent page jump
+                    const firstSuggestionCandidate = data[0]; // This is the suggestion for currentToken
+                    const textBeforeToken = fullText.substring(0, tokenStart);
 
-                                const storedTokenStart = suggestionsDropdown.data('tokenStart');
-                                const storedCurrentTokenLength = suggestionsDropdown.data('currentTokenLength');
-                                const currentFullText = searchInput.val();
-
-                                const textBeforeToken = currentFullText.substring(0, storedTokenStart);
-                                const textAfterCompletedToken = currentFullText.substring(storedTokenStart + storedCurrentTokenLength);
-
-                                const clickedSuggestionText = $(this).text();
-
-                                const newText = textBeforeToken + clickedSuggestionText + " " + textAfterCompletedToken.trimStart();
-                                searchInput.val(newText);
-
-                                const newCursorPos = (textBeforeToken + clickedSuggestionText + " ").length;
-                                // Use native setSelectionRange for better cursor control
-                                searchInput[0].setSelectionRange(newCursorPos, newCursorPos);
-
-                                clearAndHideDropdown();
-                                searchInput.focus();
-                                // DO NOT call updateSearchBoxAndRefreshEmailList here
-                            });
-                        suggestionsDropdown.append(link);
-                    });
-                    suggestionsDropdown.show();
+                    // Only show suggestion if it's longer than current token and starts with it (case insensitive)
+                    if (firstSuggestionCandidate.toLowerCase().startsWith(currentToken.toLowerCase()) && currentToken.length < firstSuggestionCandidate.length) {
+                        const fullSuggestedText = textBeforeToken + firstSuggestionCandidate;
+                        suggestionDisplay.text(fullSuggestedText);
+                    } else {
+                        suggestionDisplay.text(''); // No valid suggestion or current token already matches suggestion
+                    }
                 } else {
-                    suggestionsDropdown.hide();
+                    suggestionDisplay.text(''); // No suggestions from API
                 }
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.error('Error fetching suggestions:', textStatus, errorThrown);
-                clearAndHideDropdown();
+                suggestionDisplay.text(''); // MODIFIED
             }
         });
     });
 
-    searchInput.on('blur', function () {
-        // Delay hiding to allow click on suggestion
-        setTimeout(clearAndHideDropdown, 150);
-    });
+    searchInput.on('keydown', function(e) {
+        const currentSuggestionText = suggestionDisplay.text();
+        // Check if suggestion is available and visible (not empty) and different from current input
+        if (currentSuggestionText && currentSuggestionText !== $(this).val()) {
+            if (e.key === 'Tab') {
+                e.preventDefault(); // Prevent default tab behavior
+                $(this).val(currentSuggestionText); // Set input to the full suggestion
+                suggestionDisplay.text(''); // Clear the suggestion display
 
-    $(document).on('keydown', function (e) {
-        if (e.key === "Escape") { // Modern browsers use "Escape"
-            clearAndHideDropdown();
+                // Move cursor to the end of the input
+                const inputElem = $(this)[0];
+                if (inputElem.setSelectionRange) {
+                    inputElem.setSelectionRange(currentSuggestionText.length, currentSuggestionText.length);
+                } else if (inputElem.createTextRange) { // IE
+                    const range = inputElem.createTextRange();
+                    range.collapse(true);
+                    range.moveEnd('character', currentSuggestionText.length);
+                    range.moveStart('character', currentSuggestionText.length);
+                    range.select();
+                }
+            } else if (e.key === 'Escape') {
+                suggestionDisplay.text('');
+                 // Prevent event from bubbling up to other escape listeners if any (e.g. modal)
+                e.stopPropagation();
+            }
+        } else if (e.key === 'Escape') { // If no suggestion or suggestion is same as input, Escape should still clear display
+             suggestionDisplay.text('');
+             e.stopPropagation();
+        }
+
+        // If Enter is pressed, clear suggestion and let the existing keypress handler for Enter submit the search
+        if (e.key === 'Enter' && suggestionDisplay.text() !== '') {
+            suggestionDisplay.text('');
         }
     });
+
+    searchInput.on('blur', function () {
+        // Delay hiding to allow click on suggestion
+        setTimeout(function() { suggestionDisplay.text(''); }, 150); // MODIFIED
+    });
+
+    // $(document).on('keydown', function (e) { // OLD LOGIC - REMOVE (Replaced by specific keydown on searchInput)
+    //     if (e.key === "Escape") { // Modern browsers use "Escape"
+    //         clearAndHideDropdown(); // OLD LOGIC - REMOVE
+    //     }
+    // });
 
     // Event listener for the syntax help icon
     $('#show-syntax-help').on('click', function () {
@@ -377,7 +382,7 @@ $(function () {
     function updateSearchBoxAndRefreshEmailList(query) {
         // Update the search box and submit the form
         console.log('Updating search box and submitting form');
-        clearAndHideDropdown(); // Hide suggestions when a search is explicitly triggered
+        suggestionDisplay.text(''); // MODIFIED
         setSearchQuery(query);
         resetCurrentPage()
         refreshEmailList()
