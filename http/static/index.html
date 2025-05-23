@@ -29,7 +29,9 @@
                 </ul>
             </ul>
             <!-- delete all messages button (centered) -->
-            <button id="deleteAll" class="btn btn-danger mt-3">Delete All Messages</button>
+            <div class="d-flex justify-content-center">
+                <button id="deleteAll" class="btn btn-outline-danger mt-3">Delete All Messages</button>
+            </div>
         </div>
         <div class="right-pane">
             <div class="search-box">
@@ -65,11 +67,11 @@
                 <table class="email-table">
                     <thead>
                         <tr>
-                            <th>From</th>
-                            <th>Preview</th>
-                            <th><!-- has attachment --></th>
-                            <th>Date</th>
-                            <th>Actions</th>
+                            <th class="from-col">From</th>
+                            <th class="preview-col">Preview</th>
+                            <th class="attachment-col"><!-- has attachment --></th>
+                            <th class="date-col">Date</th>
+                            <th class="actions-col">Actions</th>
                         </tr>
                     </thead>
                     <tbody>

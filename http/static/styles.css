@@ -10,6 +10,11 @@
     padding-right: 0px !important;
 }
 
+/* Styles for the logo area */
+.left-pane .mb-3 {
+    margin-bottom: 1.5rem !important;
+}
+
 .right-pane {
     width: calc(100vw - 250px);
     flex: 1;
@@ -20,6 +25,7 @@
 .mailboxes {
     list-style: none;
     padding: 0;
+    padding-top: 10px; /* Add padding to the top of the mailbox list */
 }
 
 .mailboxes li {
@@ -42,9 +48,17 @@
 }
 
 .email-table {
-    table-layout: auto;
+    table-layout: fixed; /* Changed from auto to fixed */
+    width: 100%; /* Added width 100% */
     border-collapse: collapse;
 }
+
+/* Define column widths for the email table */
+.email-table th.from-col, .email-table td.from-col { width: 20%; }
+.email-table th.preview-col, .email-table td.preview-col { width: 50%; } /* Allow more space for preview */
+.email-table th.attachment-col, .email-table td.attachment-col { width: 5%; text-align: center; } /* Small, centered icon */
+.email-table th.date-col, .email-table td.date-col { width: 15%; }
+.email-table th.actions-col, .email-table td.actions-col { width: 10%; text-align: center; }
 
 .email-item {
     border-bottom: 1px solid #eee;
@@ -59,7 +73,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    width: 1%;
+    /* width: 1%; Removed as column widths are now handled by .preview-col */
 }
 
 .email-item td.sender {
@@ -70,8 +84,20 @@
     white-space: nowrap;
 }
 
-.search-box,
-.pagination-nav {
+.search-box { /* Separated from .pagination-nav for individual padding */
+    padding: 16px; /* Reduced padding */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.toolbar { /* Added styles for toolbar */
+    padding-top: 8px;
+    padding-bottom: 8px;
+    /* px-3 for horizontal padding is handled by Bootstrap class in HTML */
+}
+
+.pagination-nav { /* Kept original padding for pagination-nav */
     padding: 20px;
     display: flex;
     align-items: center;
@@ -83,19 +109,27 @@
     padding: 20px;
 }
 
+/* Ensure icons in the email view header are vertically centered */
+.email-view .d-flex {
+    align-items: center;
+}
+
 .email-header {
     border-bottom: 1px solid #ccc;
     margin-bottom: 20px;
+    padding-bottom: 20px; /* Added padding-bottom */
 }
 
 .email-attachments {
     border-bottom: 1px solid #ccc;
     margin-bottom: 20px;
+    padding-bottom: 20px; /* Added padding-bottom */
 }
 
 .email-body-versions {
     border-bottom: 1px solid #ccc;
     margin-bottom: 20px;
+    padding-bottom: 20px; /* Added padding-bottom */
 }
 
 .email-content {
@@ -148,4 +182,47 @@
 
 .popup-message.error {
     background-color: #dc3545;
+}
+
+/*
+Note: For the "Delete All Messages" button:
+- Centering: Apply 'text-align: center;' to its parent container in the HTML,
+  or wrap the button in a div with 'd-flex justify-content-center' classes.
+- Styling: To change the button style (e.g., to btn-outline-danger),
+  update the class directly in the HTML markup.
+*/
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+    .left-pane {
+        display: none; /* Hidden by default on small screens */
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh; /* Full height */
+        z-index: 1000; /* Ensure it's above other content */
+        background-color: #fff; /* White background, adjust as needed */
+        /* width: 250px; from original style */
+        /* border-right: 1px solid #ccc; from original style */
+        /* overflow-y: auto; from original style */
+        transform: translateX(-100%); /* Start off-screen */
+        transition: transform 0.3s ease-in-out; /* Smooth transition for sliding */
+        /* Ensure padding from original style is maintained if needed when visible */
+        /* padding-right: 0px !important; might need to be re-evaluated or padding applied to inner content */
+    }
+
+    .left-pane.is-visible {
+        display: block; /* Or 'flex' if its children need flexbox layout */
+        transform: translateX(0); /* Slide in */
+    }
+
+    .right-pane {
+        width: 100%; /* Take full width when left-pane is hidden or overlaid */
+        /* calc(100vw - 0px) effectively, as left-pane is not in flow or fixed */
+    }
+
+    /* Optional: Adjust .email-app if it has specific padding/margins affecting layout */
+    /* .email-app {
+        padding-left: 0; If left-pane was pushing it
+    } */
 }
