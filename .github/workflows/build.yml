@@ -77,9 +77,11 @@ jobs:
         run: |
           go run ./cmd/server/ --init-with-test-data e2e/testdata/emails &
           sleep 5 # Wait for the server to start
+      - name: List files in e2e directory
+        run: ls -R e2e
       - name: Run Playwright tests
         id: run-tests # Added id for this step
-        run: npx playwright test e2e/
+        run: npx playwright test
 
       - name: Upload Playwright report
         if: always() # This step runs regardless of test success/failure
