@@ -1,0 +1,36 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Mixed with Nested Multipart/Related
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary_mixed"
+
+--boundary_mixed
+Content-Type: multipart/related;
+	boundary="boundary_related";
+	type="text/html"
+
+--boundary_related
+Content-Type: text/html; charset="UTF-8"
+Content-ID: <nested_html@example.com>
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>Nested related content.</p><img src=3D"cid:nested_image@e=
+xample.com"></body></html>
+
+--boundary_related
+Content-Type: image/jpeg
+Content-ID: <nested_image@example.com>
+Content-Disposition: inline; filename="photo.jpg"
+Content-Transfer-Encoding: base64
+
+/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AL+AAf/Z
+
+--boundary_related--
+
+--boundary_mixed
+Content-Type: text/plain; charset="UTF-8"
+Content-Disposition: attachment; filename="readme.txt"
+Content-Transfer-Encoding: quoted-printable
+
+This is a plain text attachment.
+--boundary_mixed--

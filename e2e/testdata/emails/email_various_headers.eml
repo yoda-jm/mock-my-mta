@@ -1,0 +1,20 @@
+Subject: Email with Various Headers
+From: "Sender Name" <sender@example.com>
+To: "Recipient Name" <receiver@example.com>
+Cc: cc-recipient@example.com
+Bcc: bcc-recipient@example.com
+Date: Fri, 23 May 2025 10:10:00 +0000
+Message-ID: <variousheaders-test@example.com>
+X-Mailer: My Test Mailer 1.0
+X-Priority: 1 (Highest)
+X-Custom-Header: This is a custom header value
+Reply-To: noreply@example.com
+Organization: Test Organization
+Keywords: test, e2e, headers
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+This email includes a variety of standard and custom headers.
+The purpose is to test how the application handles these different headers.
+Check for Cc, Bcc, X-Mailer, X-Priority, X-Custom-Header, Reply-To, Organization, and Keywords.
+The content type and encoding are also explicitly set.

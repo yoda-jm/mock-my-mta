@@ -1,0 +1,25 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Multipart/Related with HTML and Image
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	boundary="boundary_related";
+	type="text/html"
+
+--boundary_related
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>This is an HTML body with an inline image:</p>
+<img src=3D"cid:image1@example.com">
+<p>Some more text here.</p></body></html>
+
+--boundary_related
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <image1@example.com>
+Content-Disposition: inline; filename="image.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=
+
+--boundary_related--

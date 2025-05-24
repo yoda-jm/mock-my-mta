@@ -1,0 +1,14 @@
+Subject: Email with External Image
+From: image-sender@example.com
+To: receiver@example.com
+Date: Sat, 24 May 2025 11:00:00 +0000
+Message-ID: <externalimage-test@example.com>
+Content-Type: text/html; charset="utf-8"
+
+<html>
+<body>
+<p>This email contains an external image.</p>
+<img src="http://placekitten.com/200/300" alt="External Kitten Image">
+<p>End of email.</p>
+</body>
+</html>

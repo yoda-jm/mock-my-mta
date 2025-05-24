@@ -1,0 +1,10 @@
+Subject: Test! @#$%^&*()_+ Special Characters
+From: sender@example.com
+To: receiver@example.com
+Date: Fri, 23 May 2025 10:00:00 +0000
+Message-ID: <specialchars-test@example.com>
+
+This email contains special characters in the subject and body.
+Here are some: ~`!@#$%^&*()_+-={}[]|\:";'<>?,./
+And some more: éàçùñöüß
+Hopefully, these are handled correctly.

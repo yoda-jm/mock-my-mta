@@ -44,6 +44,41 @@ To generate and view a test coverage report:
 1. Generate the coverage profile: `go test -coverprofile=coverage.out ./...`
 2. Open the report in a browser: `go tool cover -html=coverage.out -o coverage.html` (This will create `coverage.html` in your current directory).
 
+## Running End-to-End Tests
+
+End-to-end (E2E) tests are implemented using Playwright to simulate real user interactions with the web UI.
+
+**Prerequisites:**
+- Node.js and npm must be installed.
+
+**Setup & Execution:**
+
+1.  **Install Dependencies:**
+    If you haven't already, or to ensure all project dependencies (including Playwright) are installed, run:
+    ```bash
+    npm install
+    ```
+    *(This assumes `playwright` and `@playwright/test` are listed in `package.json` devDependencies. If not, you might need `npm init playwright@latest --yes -- --quiet --browser=all` for a first-time setup).*
+
+2.  **Start the Application Server for E2E Tests:**
+    The server needs to be running with the specific test data located in the `e2e/testdata/emails` directory.
+    ```bash
+    go run ./cmd/server/ --init-with-test-data e2e/testdata/emails
+    ```
+    Keep this server running in a separate terminal.
+
+3.  **Run Playwright Tests:**
+    Execute the following command to run the E2E tests:
+    ```bash
+    npx playwright test
+    ```
+
+4.  **View Playwright HTML Report (Optional):**
+    After the tests have run, you can view a detailed HTML report:
+    ```bash
+    npx playwright show-report
+    ```
+
 ## Additional information
 
 If you want more emails to test performance and various emails, you can put `.eml` email files
@@ -75,6 +110,12 @@ Contributions are welcome! If you'd like to contribute to this project, please f
 3. Make your changes and commit them: `git commit -m 'Add some feature'`
 4. Push to the branch: `git push origin feature/your-feature-name`
 5. Submit a pull request.
+
+**Frontend Development Note:**
+To ensure robust and maintainable end-to-end tests, `data-testid` attributes have been systematically added to interactive HTML elements in the frontend (`http/static/index.html` and dynamically in `http/static/script.js`). When making changes to the UI, please:
+- Utilize existing `data-testid` attributes for selecting elements in tests.
+- Add new `data-testid` attributes to new interactive elements.
+- Ensure `data-testid` attributes remain consistent and descriptive.
 
 The goal of the project is to keep the code clean and minimal but still provinding all the expected features for such a software.
 

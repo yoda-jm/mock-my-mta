@@ -455,7 +455,10 @@ $(function () {
                 for (var i = 0; i < attachments.length; i++) {
                     var attachment = attachments[i];
                     // I have content_type, size, filename, id, coma separated links in spans on the same line
-                    var attachmentHtml = $('<span>').append($('<a>').attr('href', '/api/emails/' + emailId + '/attachments/' + attachment.id + '/content').text(attachment.filename));
+                    var attachmentLink = $('<a>').attr('href', '/api/emails/' + emailId + '/attachments/' + attachment.id + '/content')
+                                                 .text(attachment.filename)
+                                                 .attr('data-testid', `attachment-link-${attachment.id}`);
+                    var attachmentHtml = $('<span>').append(attachmentLink);
                     attachmentHtml.append(' (' + attachment.size +' bytes)');
                     if (i < attachments.length - 1) {
                         attachmentHtml.append(', ');
@@ -538,10 +541,11 @@ $(function () {
         $('.email-body-versions').append($('<strong>').text('Body versions: '));
         for (var i = 0; i < bodyVersions.length; i++) {
             let bodyVersion = bodyVersions[i];
+            let testId = `email-body-version-tab-${bodyVersion.toLowerCase().replace(' ', '-')}`;
             if (bodyVersion == selectedBodyVersion) {
-                $('.email-body-versions').append($('<span>').text(bodyVersion).css('font-weight', 'bold'));
+                $('.email-body-versions').append($('<span>').text(bodyVersion).css('font-weight', 'bold').attr('data-testid', testId));
             } else {
-                $('.email-body-versions').append($('<span>').text(bodyVersion).click(function () {
+                $('.email-body-versions').append($('<span>').text(bodyVersion).attr('data-testid', testId).click(function () {
                     console.log('Switching to body version ' + bodyVersion);
                     updateEmailBodyVersions(bodyVersions, bodyVersion, emailId);
                     updateEmailBody(bodyVersion, emailId);
@@ -594,20 +598,21 @@ $(function () {
 
     function generateEmailListItem(email) {
         return $('<tr class="email-item">')
-            .append($('<td class="sender">').append(formatEmailAddress(email.from)))
-            .append($('<td class="preview">').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
-            .append($('<td>').append(email.has_attachments ? $('<i class="bi bi-paperclip icon">') : ''))
-            .append($('<td class="date">').text(formatDateTime(email.date)))
-            .append($('<td>')
+            .attr('data-testid', `email-row-${email.id}`)
+            .append($('<td class="sender" data-testid="email-from-' + email.id + '">').append(formatEmailAddress(email.from)))
+            .append($('<td class="preview" data-testid="email-preview-' + email.id + '">').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
+            .append($('<td data-testid="email-attachment-icon-' + email.id + '">').append(email.has_attachments ? $('<i class="bi bi-paperclip icon">') : ''))
+            .append($('<td class="date" data-testid="email-date-' + email.id + '">').text(formatDateTime(email.date)))
+            .append($('<td data-testid="email-actions-' + email.id + '">')
                 .append(
-                    $('<i class="bi bi-trash icon" title="Delete">')
+                    $('<i class="bi bi-trash icon" title="Delete" data-testid="email-delete-button-' + email.id + '">')
                     .click(function (event) {
                         event.stopPropagation();
                         console.log('Deleting email ' + email.id);
                         deleteEmail(email.id);
                     }))
                 .append(
-                    $('<i class="bi bi-envelope-arrow-up icon" title="Release...">')
+                    $('<i class="bi bi-envelope-arrow-up icon" title="Release..." data-testid="email-release-button-' + email.id + '">')
                     .click(function (event) {
                         // prevent cascade
                         event.stopPropagation();
@@ -624,6 +629,7 @@ $(function () {
 
     function generateMaiboxListItem(mailbox) {
         return $('<li class="list-item">')
+            .attr('data-testid', `mailbox-item-${mailbox.name}`)
             .text(mailbox.name)
             .attr('title', mailbox.name)
             .click(function () {

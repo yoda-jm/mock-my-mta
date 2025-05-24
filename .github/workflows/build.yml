@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: write
+  pages: write # Added for GitHub Pages deployment
+  id-token: write # Added for GitHub Pages deployment (OIDC)
 
 jobs:
   build:
@@ -24,7 +26,37 @@ jobs:
         exclude:
           - os: windows-latest
             arch: arm64
-
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Install dependencies
+        run: go mod download
+      - name: Run tests
+        run: go test ./... -v
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'darwin' }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          go build -o bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server/
+      - name: Upload binary
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
+          path: bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: build
+    permissions: # Job-level permissions for GitHub Pages
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,27 +64,35 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
-
-      - name: Install dependencies
-        run: go mod download
-
-      - name: Run tests
-        run: go test ./... -v
-
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'darwin' }}
-          GOARCH: ${{ matrix.arch }}
+          go-version: '1.23.x' # Or match the version used in the build job
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x' # Or a suitable LTS version like 18.x
+      - name: Install project dependencies
+        run: npm install
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Start application server
         run: |
-          go build -o bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server/
-    
-      - name: Upload binary
-        if: success()
+          go run ./cmd/server/ --init-with-test-data e2e/testdata/emails &
+          sleep 5 # Wait for the server to start
+      - name: Run Playwright tests
+        id: run-tests # Added id for this step
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: always() # This step runs regardless of test success/failure
         uses: actions/upload-artifact@v4
         with:
-          name: mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
-          path: bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
+          name: playwright-report
+          path: playwright-report/
+      - name: Deploy to GitHub Pages
+        if: success() # This step only runs if tests (and previous steps) were successful
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages # The branch the action should deploy to.
+          folder: playwright-report # The folder the action should deploy.
   release:
     name: Create Release and Upload Assets
     runs-on: ubuntu-latest
@@ -92,7 +132,6 @@ jobs:
           gh release upload latest "${{ github.workspace }}/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   test_coverage:
     name: Run Test Coverage
     runs-on: ubuntu-latest

@@ -1,0 +1,45 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Mixed with Nested Multipart/Related
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary_mixed"
+
+--boundary_mixed
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+This is a plain text part at the top level.
+
+--boundary_mixed
+Content-Type: multipart/related;
+	boundary="boundary_related_nested";
+	type="text/html";
+	start="<root.html.nested@example.com>"
+
+--boundary_related_nested
+Content-Type: text/html; charset="utf-8"
+Content-ID: <root.html.nested@example.com>
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><p>This is the root HTML of a nested multipart/related.</p>
+<img src=3D"cid:image.nested@example.com">
+</body></html>
+
+--boundary_related_nested
+Content-Type: image/gif
+Content-Transfer-Encoding: base64
+Content-ID: <image.nested@example.com>
+Content-Disposition: inline; filename="nested_image.gif"
+
+R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=
+
+--boundary_related_nested--
+
+--boundary_mixed
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="another_attachment.dat"
+Content-Transfer-Encoding: base64
+
+SGVsbG8gV29ybGQh
+
+--boundary_mixed--

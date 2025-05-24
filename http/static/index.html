@@ -19,8 +19,8 @@
                 <img src="logo.png" alt="Logo" style="max-width: 100%;">
             </div>
             <ul class="mailboxes">
-                <li id="allEmails">All</li>
-                <li data-toggle="collapse" data-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList">
+                <li id="allEmails" data-testid="all-emails-link">All</li>
+                <li data-toggle="collapse" data-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList" data-testid="mailbox-toggle">
                     Mailbox
                     <i class="bi bi-chevron-right icon"></i>
                 </li>
@@ -30,22 +30,22 @@
             </ul>
             <!-- delete all messages button (centered) -->
             <div class="d-flex justify-content-center">
-                <button id="deleteAll" class="btn btn-outline-danger mt-3">Delete All Messages</button>
+                <button id="deleteAll" class="btn btn-outline-danger mt-3" data-testid="delete-all-button">Delete All Messages</button>
             </div>
         </div>
         <div class="right-pane">
             <div class="search-box">
                 <div class="search-input-container">
                     <div id="suggestion-display"></div>
-                    <input type="text" class="form-control" placeholder="Search emails...">
+                    <input type="text" class="form-control" placeholder="Search emails..." data-testid="search-input">
                 </div>
-                <i class="bi bi-question-circle ms-2 icon" id="show-syntax-help" title="Show syntax help"></i>
-                <i class="bi bi-x-lg ms-2 icon"></i>
-                <i class="bi bi-search ms-2 icon"></i>
+                <i class="bi bi-question-circle ms-2 icon" id="show-syntax-help" title="Show syntax help" data-testid="search-syntax-help-button"></i>
+                <i class="bi bi-x-lg ms-2 icon" data-testid="search-clear-button"></i>
+                <i class="bi bi-search ms-2 icon" data-testid="search-submit-button"></i>
             </div>
             <div class="toolbar d-flex justify-content-between align-items-center px-3">
                 <div class="toolbar-left">
-                    <button id="refresh" class="btn">
+                    <button id="refresh" class="btn" data-testid="refresh-button">
                         <i class="bi bi-arrow-clockwise ms-2 icon"></i>
                     </button>
                 </div>
@@ -58,10 +58,10 @@
                         <span id="page-total">?</span> (
                         <span id="total-matches">?</span> emails total)
                     </span>
-                    <button id="prev-page" class="btn">
+                    <button id="prev-page" class="btn" data-testid="prev-page-button">
                         <i class="bi bi-chevron-left"></i>
                     </button>
-                    <button id="next-page" class="btn">
+                    <button id="next-page" class="btn" data-testid="next-page-button">
                         <i class="bi bi-chevron-right"></i>
                     </button>
                 </div>
@@ -78,28 +78,28 @@
                             <th class="actions-col">Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-testid="email-list-body">
                         <!-- List of emails will be fetched and populated here -->
                     </tbody>
                 </table>
             </div>
             <div class="email-view">
                 <div class="d-flex justify-content-between mb-3">
-                    <i class="bi bi-arrow-left icon" title="Back..."></i>
-                    <i class="bi bi-envelope-arrow-up icon" title="Release..."></i>
-                    <i class="bi bi-trash icon" title="Delete"></i>
+                    <i class="bi bi-arrow-left icon" title="Back..." data-testid="email-view-back-button"></i>
+                    <i class="bi bi-envelope-arrow-up icon" title="Release..." data-testid="email-view-release-button"></i>
+                    <i class="bi bi-trash icon" title="Delete" data-testid="email-view-delete-button"></i>
                 </div>
                 <div class="email-header">
                     <!-- Email header goes here -->
                 </div>
-                <div class="email-attachments">
+                <div class="email-attachments" data-testid="email-attachments-list">
                     <!-- List of attachments -->
                 </div>
-                <div class="email-body-versions">
+                <div class="email-body-versions" data-testid="email-body-versions">
                     <!-- List of email body versions -->
                 </div>
                 <div class="form-check form-switch my-2 px-3">
-                    <input class="form-check-input" type="checkbox" role="switch" id="displayExternalImagesToggle">
+                    <input class="form-check-input" type="checkbox" role="switch" id="displayExternalImagesToggle" data-testid="email-view-display-external-images-toggle">
                     <label class="form-check-label" for="displayExternalImagesToggle">Display external images</label>
                 </div>
                 <div class="email-content">
@@ -115,7 +115,7 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="syntaxHelpModalLabel">Filter Syntax Help</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" data-testid="syntax-help-modal-close-button"></button>
           </div>
           <div class="modal-body">
             <table class="table table-striped">
@@ -143,19 +143,19 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="releaseEmailModalLabel">Release Email</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" data-testid="release-modal-close-button-x"></button>
                 </div>
                 <div class="modal-body">
                     <form id="releaseEmailForm">
                         <!-- Email ID -->
                         <div class="mb-3">
                             <label for="emailId" class="form-label">Email ID</label>
-                            <input type="text" class="form-control" id="emailId" readonly>
+                            <input type="text" class="form-control" id="emailId" readonly data-testid="release-modal-email-id-input">
                         </div>
                         <!-- Relay Configuration Select -->
                         <div class="mb-3">
                             <label for="relayConfig" class="form-label">Relay Configuration</label>
-                            <select class="form-select" id="relayConfig" name="relayConfig">
+                            <select class="form-select" id="relayConfig" name="relayConfig" data-testid="release-modal-relay-config-select">
                                 <!-- Dynamic relay configurations go here -->
                                 <option value="" selected>None</option>
                             </select>
@@ -165,17 +165,17 @@
                             <label class="form-label">Sender</label>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="senderOption" id="senderOriginal"
-                                    value="original" checked>
+                                    value="original" checked data-testid="release-modal-sender-original-radio">
                                 <label class="form-check-label" for="senderOriginal">Original Sender</label>
                                 <input type="text" class="form-control" id="originalSender" readonly
-                                    value="">
+                                    value="" data-testid="release-modal-original-sender-input">
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="senderOption" id="senderOverride"
-                                    value="override">
+                                    value="override" data-testid="release-modal-sender-override-radio">
                                 <label class="form-check-label" for="senderOverride">Override Sender</label>
                                 <input type="text" class="form-control" id="overrideSender"
-                                    placeholder="Enter override sender" disabled>
+                                    placeholder="Enter override sender" disabled data-testid="release-modal-override-sender-input">
                             </div>
                         </div>
                         <!-- Receivers Selection Radio -->
@@ -183,22 +183,22 @@
                             <label class="form-label">Receivers</label>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="receiversOption" id="receiversOriginal"
-                                    value="original" checked>
+                                    value="original" checked data-testid="release-modal-receivers-original-radio">
                                 <label class="form-check-label" for="receiversOriginal">Original Receivers</label>
                                 <input type="text" class="form-control" id="originalReceivers" readonly
-                                    value="receiver1@example.com, receiver2@example.com">
+                                    value="receiver1@example.com, receiver2@example.com" data-testid="release-modal-original-receivers-input">
                             </div>
                             <div class="form-check">
                                 <input class="form-check-input" type="radio" name="receiversOption" id="receiversOverride"
-                                    value="override">
+                                    value="override" data-testid="release-modal-receivers-override-radio">
                                 <label class="form-check-label" for="receiversOverride">Override Receivers</label>
                                 <input type="text" class="form-control" id="overrideReceivers"
-                                    placeholder="Enter override receivers" disabled>
+                                    placeholder="Enter override receivers" disabled data-testid="release-modal-override-receivers-input">
                             </div>
                         </div>
                         <!-- Release Button -->
-                        <button type="button" class="btn btn-primary" id="releaseEmailButton">Release</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" id="releaseEmailButton" data-testid="release-modal-release-button">Release</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-testid="release-modal-close-button">Close</button>
                     </form>
                 </div>
             </div>
