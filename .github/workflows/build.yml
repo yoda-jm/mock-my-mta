@@ -79,7 +79,7 @@ jobs:
           sleep 5 # Wait for the server to start
       - name: Run Playwright tests
         id: run-tests # Added id for this step
-        run: npx playwright test
+        run: npx playwright test e2e/
 
       - name: Upload Playwright report
         if: always() # This step runs regardless of test success/failure
