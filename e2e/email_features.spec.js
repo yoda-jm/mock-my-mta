@@ -1,0 +1,194 @@
+'use strict';
+
+const { test, expect } = require('@playwright/test');
+const { InboxPage }    = require('./pages/InboxPage');
+
+/**
+ * Feature tests covering UI behaviours not tested in email_interaction.spec.js.
+ * This file is intentionally non-destructive (no delete-all) so it can safely
+ * run before the interaction suite (alphabetical order: _features < _interaction).
+ *
+ * The one exception is "Delete from email view" which removes a single email
+ * and is placed last in this file.
+ */
+test.describe('Email Feature Tests', () => {
+  /** @type {InboxPage} */
+  let inbox;
+
+  test.beforeEach(async ({ page }) => {
+    inbox = new InboxPage(page);
+    await inbox.goto();
+  });
+
+  // ── Read-only ────────────────────────────────────────────────────────────
+
+  test('Refresh button reloads the email list', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    const countBefore = await inbox.emailList.count();
+
+    await inbox.emailList.refresh();
+
+    // Count should be identical after a plain refresh
+    await expect(inbox.emailList.rows().first()).toBeVisible();
+    expect(await inbox.emailList.count()).toBe(countBefore);
+  });
+
+  test('Mailbox sidebar — filter by recipient then reset to all', async () => {
+    const totalBefore = await inbox.emailList.pagination.totalEmails();
+
+    // Expand the mailbox list; items are populated after the API call
+    await inbox.mailbox.expand();
+    await expect(inbox.mailbox.item('recipient1@example.com')).toBeVisible();
+
+    // Click a mailbox — list should show only emails addressed to that recipient
+    await inbox.mailbox.clickMailbox('recipient1@example.com');
+    const filteredCount = await inbox.emailList.pagination.totalEmails();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(totalBefore);
+
+    // The search box should reflect the mailbox filter
+    await expect(inbox.search.input).toHaveValue('mailbox:recipient1@example.com');
+
+    // Click "All" to reset
+    await inbox.mailbox.showAll();
+    const totalAfter = await inbox.emailList.pagination.totalEmails();
+    expect(totalAfter).toBe(totalBefore);
+  });
+
+  test('Syntax help modal — opens with filter entries and closes', async () => {
+    await inbox.syntaxHelp.open();
+
+    await expect(inbox.syntaxHelp.locator).toBeVisible();
+    // The table should have at least one filter syntax entry
+    expect(await inbox.syntaxHelp.tableRows.count()).toBeGreaterThan(0);
+
+    await inbox.syntaxHelp.close();
+    await expect(inbox.syntaxHelp.locator).toBeHidden();
+  });
+
+  test('Body version tabs — switch between HTML, plain-text and raw', async () => {
+    // The Apple Watch email has html, plain-text, watch-html and raw versions
+    await inbox.search.search('subject:Apple Watch Example');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    await inbox.emailList.firstRow().open();
+
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    const { bodyVersions } = inbox.emailView;
+
+    // html is the default preferred version — it should already be bold
+    await expect(bodyVersions.tab('html')).toBeVisible();
+    await expect(bodyVersions.tab('html')).toHaveCSS('font-weight', '700');
+
+    // Switch to plain-text
+    await bodyVersions.switchTo('plain-text');
+    await expect(bodyVersions.tab('plain-text')).toHaveCSS('font-weight', '700');
+    await expect(bodyVersions.tab('html')).not.toHaveCSS('font-weight', '700');
+
+    // Switch to raw
+    await bodyVersions.switchTo('raw');
+    await expect(bodyVersions.tab('raw')).toHaveCSS('font-weight', '700');
+    await expect(bodyVersions.tab('plain-text')).not.toHaveCSS('font-weight', '700');
+
+    // Switch back to html
+    await bodyVersions.switchTo('html');
+    await expect(bodyVersions.tab('html')).toHaveCSS('font-weight', '700');
+  });
+
+  test('Watch-HTML body version tab is present for Apple Watch email', async () => {
+    await inbox.search.search('subject:Apple Watch Example');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    await inbox.emailList.firstRow().open();
+
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    // watch-html is a non-standard version only present in Apple Watch emails
+    const watchTab = inbox.emailView.bodyVersions.tab('watch-html');
+    await expect(watchTab).toBeVisible();
+
+    // Clicking it fetches the watch-html body and marks it active
+    await inbox.emailView.bodyVersions.switchTo('watch-html');
+    await expect(watchTab).toHaveCSS('font-weight', '700');
+  });
+
+  test('Attachments — list and download links for multipart email', async () => {
+    // "Important information" has 3 attachments
+    await inbox.search.search('subject:Important information');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // Verify the paperclip icon is shown in the list row before opening
+    const firstRow = inbox.emailList.firstRow();
+    await expect(firstRow.attachmentIcon).toBeVisible();
+
+    await firstRow.open();
+
+    await expect(inbox.emailView.locator).toBeVisible();
+    await expect(inbox.emailView.attachmentsList).toBeVisible();
+    // Attachment links are rendered asynchronously after the /attachments/ call
+    await expect(inbox.emailView.attachmentLinks.first()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailView.attachmentLinks.count()).toBeGreaterThanOrEqual(1);
+
+    // Each link should have a valid href pointing to the attachment content endpoint
+    const href = await inbox.emailView.attachmentLinks.first().getAttribute('href');
+    expect(href).toMatch(/\/api\/emails\/.+\/attachments\/.+\/content/);
+  });
+
+  test('Email header shows From, Date and Subject', async () => {
+    await inbox.emailList.firstRow().open();
+
+    await expect(inbox.emailView.locator).toBeVisible();
+    await expect(inbox.emailView.header).toBeVisible();
+
+    // The header section should contain all three key fields
+    await expect(inbox.emailView.header).toContainText('From:');
+    await expect(inbox.emailView.header).toContainText('Date:');
+    await expect(inbox.emailView.header).toContainText('Subject:');
+  });
+
+  test('Release modal — sender override enables the input field', async () => {
+    await expect(inbox.emailList.firstRow().releaseButton).toBeVisible({ timeout: 10000 });
+    await inbox.emailList.firstRow().openReleaseModal();
+
+    await expect(inbox.releaseModal.locator).toBeVisible();
+
+    // By default the override sender input is disabled
+    await expect(inbox.releaseModal.overrideSenderInput).toBeDisabled();
+
+    // Clicking the override radio enables it
+    const overrideRadio = inbox.releaseModal.locator.locator(
+      '[data-testid="release-modal-sender-override-radio"]'
+    );
+    await overrideRadio.click();
+    await expect(inbox.releaseModal.overrideSenderInput).toBeEnabled();
+
+    // Type a value and verify it's accepted
+    await inbox.releaseModal.overrideSenderInput.fill('custom@test.com');
+    await expect(inbox.releaseModal.overrideSenderInput).toHaveValue('custom@test.com');
+
+    // Switch back to original — input becomes disabled and cleared
+    await inbox.releaseModal.senderOriginalRadio.click();
+    await expect(inbox.releaseModal.overrideSenderInput).toBeDisabled();
+
+    await inbox.releaseModal.close();
+    await expect(inbox.releaseModal.locator).toBeHidden();
+  });
+
+  // ── Slightly destructive (single delete) — placed last ──────────────────
+
+  test('Delete from email view — removes email and returns to list', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    const totalBefore = await inbox.emailList.pagination.totalEmails();
+
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    await inbox.emailView.delete();
+
+    // After deletion the app returns to the list view automatically
+    await expect(inbox.emailList.tbody).toBeVisible({ timeout: 5000 });
+    await expect(inbox.emailView.locator).toBeHidden();
+    await expect(inbox.emailList.pagination.totalMatchesEl)
+      .toHaveText((totalBefore - 1).toString());
+  });
+
+});
