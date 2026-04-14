@@ -3,7 +3,14 @@
   "version": "1.0.0",
   "description": "## Description",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "report:serve": "npx playwright show-report",
+    "docker:test": "docker compose down --remove-orphans; docker compose run --rm e2e",
+    "docker:up": "docker compose up server -d",
+    "docker:down": "docker compose down"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yoda-jm/mock-my-mta.git"

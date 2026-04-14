@@ -1,0 +1,26 @@
+services:
+  server:
+    build: .
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.52.0-noble
+    working_dir: /app
+    volumes:
+      - .:/app
+      - e2e_node_modules:/app/node_modules
+    environment:
+      - BASE_URL=http://server:8025
+      - CI=true
+    depends_on:
+      server:
+        condition: service_healthy
+    # Exit with test result code.
+    # playwright-report/ and test-results/ are written into the host-mounted .:/app volume
+    # and persist after the container exits. Run `npm run report:serve` on the host to view them.
+    command: sh -c "npm ci && npx playwright test"
+
+volumes:
+  e2e_node_modules:

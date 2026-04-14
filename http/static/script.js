@@ -1,4 +1,6 @@
 $(function () {
+    let currentEmailId = null;
+
     const searchInput = $('.search-box input[type="text"]');
     const suggestionDisplay = $('#suggestion-display');
 
@@ -151,6 +153,19 @@ $(function () {
 
     $('.bi-arrow-left').click(function () {
         displayEmailList();
+    });
+
+    $('[data-testid="email-view-release-button"]').click(function () {
+        if (currentEmailId) {
+            displayReleaseModal(currentEmailId);
+        }
+    });
+
+    $('[data-testid="email-view-delete-button"]').click(function () {
+        if (currentEmailId) {
+            deleteEmail(currentEmailId);
+            currentEmailId = null;
+        }
     });
 
     // Function to process images based on the toggle state
@@ -560,6 +575,7 @@ $(function () {
     function updateEmailContent(email) {
         // Update the email content
         console.log('Updating email content ' + email.id);
+        currentEmailId = email.id;
         updateEmailContentHeader(email);
         updateEmailAttachments(email.id);
         selectedBodyVersion = pickBestBodyVersion(email.body_versions);
