@@ -53,31 +53,81 @@ End-to-end (E2E) tests are implemented using Playwright to simulate real user in
 
 **Setup & Execution:**
 
-1.  **Install Dependencies:**
-    If you haven't already, or to ensure all project dependencies (including Playwright) are installed, run:
-    ```bash
-    npm install
-    ```
-    *(This assumes `playwright` and `@playwright/test` are listed in `package.json` devDependencies. If not, you might need `npm init playwright@latest --yes -- --quiet --browser=all` for a first-time setup).*
+### With Docker (recommended — zero host dependencies)
 
-2.  **Start the Application Server for E2E Tests:**
-    The server needs to be running with the specific test data located in the `e2e/testdata/emails` directory.
-    ```bash
-    go run ./cmd/server/ --init-with-test-data e2e/testdata/emails
-    ```
-    Keep this server running in a separate terminal.
+```bash
+# Build + run the full suite inside Docker Compose, then exit:
+npm run docker:test
+# (equivalent to: docker compose down --remove-orphans && docker compose run --rm e2e)
 
-3.  **Run Playwright Tests:**
-    Execute the following command to run the E2E tests:
-    ```bash
-    npx playwright test
-    ```
+# Serve the interactive HTML report from the last run:
+npm run report:serve   # opens http://localhost:9323
+```
 
-4.  **View Playwright HTML Report (Optional):**
-    After the tests have run, you can view a detailed HTML report:
-    ```bash
-    npx playwright show-report
-    ```
+The `docker:test` script starts the Go server in one container, waits for
+the healthcheck to pass, then runs Playwright in a second container.
+
+### Locally (requires Go ≥ 1.21 and Node.js ≥ 18)
+
+```bash
+# 1. Install Node dependencies and the Chromium browser
+npm ci
+npx playwright install chromium --with-deps
+
+# 2. Build the server, start it with the E2E test dataset
+go build -o server ./cmd/server/
+./server --init-with-test-data e2e/testdata/emails &
+
+# 3. Run the tests
+npx playwright test
+
+# 4. Open the interactive HTML report
+npm run report:serve   # opens http://localhost:9323
+```
+
+### Test structure
+
+| File | Purpose | Run order |
+|------|---------|-----------|
+| `e2e/email_display.spec.js` | Decoding (QP, base64), CID images, header fields, autocomplete | 1st |
+| `e2e/email_features.spec.js` | UI features + all search filter operators | 2nd |
+| `e2e/email_interaction.spec.js` | Full interaction + destructive (delete) tests | Last |
+
+Files run in alphabetical order. Destructive tests are placed last within
+their file; `email_interaction.spec.js` is last overall.
+
+### Test data
+
+Crafted `.eml` fixtures live in `e2e/testdata/emails/`. Key files:
+
+| File | Covers |
+|------|--------|
+| `multipart_alternative_watch.eml` | Apple Watch HTML body version |
+| `multipart_mixed_related_alternative_attachments.eml` | Multiple attachments |
+| `cid_image_only.eml` | CID image rewriting to API endpoint |
+| `email_with_external_image.eml` | External image hide/show toggle |
+| `email_various_headers.eml` | Display name, CC, ID header fields |
+| `email_qp_french.eml` | Quoted-printable UTF-8 decoding |
+| `email_base64_body.eml` | Base64 body decoding |
+| `email_unique_from.eml` | `from:` filter isolation |
+| `email_dated_old.eml` | `before:` / `older_than:` filters (dated 2020) |
+| `email_dated_recent.eml` | `after:` / `newer_than:` filters (dated 2026-04-01) |
+| `email_with_specialchars.eml` | Special character + quoted phrase search |
+| `email1.eml`, `email2.eml` | `mailbox:` filter (recipient1@example.com) |
+| `email3–7.eml` | Pagination (total > 20 emails) |
+
+### CI — GitHub Actions
+
+A dedicated workflow (`.github/workflows/e2e.yml`) runs on every push and
+pull request to `main`. It:
+
+1. Builds the Go server binary natively.
+2. Installs Playwright's Chromium browser.
+3. Waits for the server to pass a health check before starting tests.
+4. Emits inline **GitHub annotations** on failure — visible on the commit/PR page.
+5. Posts a **pass/fail summary table** to the Actions run summary tab.
+6. Uploads the **interactive HTML report** as a downloadable artifact
+   (`playwright-report`, kept for 30 days).
 
 ## Additional information
 
@@ -93,13 +143,15 @@ Here is a list of resources providing such emails:
 There is still a lot of things that should be done:
 - improve GUI (general layout, button interactions, ...)
 - implement new storage layers (memory, sqlite, other SQL, mongo, ...)
-- github worflows for code quality, ...
-- add more relevant email examples, with corner cases tests
-- add more data-testid in the frontend (in order to be easy to use with tools such as playwright)
+- github workflows for code quality, ...
 - find a nice logo (and maybe a name) for the project
-- query typeahead when possible
 - make Content-Security-Policy work when displaying email
-- automatically embed images with cid (attached to the email)
+
+Done:
+- ✅ add more relevant email examples, with corner cases tests
+- ✅ add more data-testid in the frontend (in order to be easy to use with tools such as playwright)
+- ✅ query typeahead / autocomplete for search
+- ✅ automatically rewrite CID image references to the API endpoint
 
 ## Contributing
 

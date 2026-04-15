@@ -14,6 +14,8 @@ export default defineConfig({
     ['list'],
     ['html', { open: 'never', outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'test-results/results.json' }],
+    // In CI: emit GitHub annotations so failures appear inline on commits/PRs
+    ...(process.env.CI ? [['github'] as [string]] : []),
   ],
   use: {
     /* baseURL is overridden via BASE_URL when running inside Docker */
