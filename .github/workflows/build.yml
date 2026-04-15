@@ -26,9 +26,9 @@ jobs:
             arch: arm64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
       - name: Install dependencies
@@ -43,7 +43,7 @@ jobs:
           go build -o bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }} ./cmd/server/
       - name: Upload binary
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
           path: bin/mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
@@ -64,10 +64,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: mock-my-mta-${{ matrix.os }}-${{ matrix.arch }}
 
@@ -93,10 +93,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: 1.21.x
 
@@ -109,13 +109,13 @@ jobs:
           go tool cover -html=coverage.out -o coverage.html
 
       - name: Upload test coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.out
 
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-html
           path: coverage.html

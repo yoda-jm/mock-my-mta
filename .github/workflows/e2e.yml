@@ -19,10 +19,10 @@ jobs:
 
     steps:
       # ── Checkout ─────────────────────────────────────────────────────────
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ── Go toolchain + server build ───────────────────────────────────────
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.23.x'
 
@@ -30,7 +30,7 @@ jobs:
         run: CGO_ENABLED=0 go build -o server ./cmd/server/
 
       # ── Node / Playwright ─────────────────────────────────────────────────
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20.x'
 
@@ -107,7 +107,7 @@ jobs:
       # ── Upload artefacts (always — even on failure) ───────────────────────
       - name: Upload HTML report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload JSON results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results-json
           path: test-results/results.json
@@ -134,16 +134,16 @@ jobs:
 
     steps:
       - name: Download HTML report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: playwright-report/
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
