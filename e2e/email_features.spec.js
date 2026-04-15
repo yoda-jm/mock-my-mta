@@ -2,6 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { InboxPage }    = require('./pages/InboxPage');
+const { takeAndAttachScreenshot, screenshotLocator } = require('./helpers/screenshot');
 
 /**
  * Feature tests covering UI behaviours not tested in email_interaction.spec.js.
@@ -31,6 +32,7 @@ test.describe('Email Feature Tests', () => {
     // Count should be identical after a plain refresh
     await expect(inbox.emailList.rows().first()).toBeVisible();
     expect(await inbox.emailList.count()).toBe(countBefore);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-refresh-button.png');
   });
 
   test('Mailbox sidebar — filter by recipient then reset to all', async () => {
@@ -48,6 +50,7 @@ test.describe('Email Feature Tests', () => {
 
     // The search box should reflect the mailbox filter
     await expect(inbox.search.input).toHaveValue('mailbox:recipient1@example.com');
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-mailbox-filter.png');
 
     // Click "All" to reset
     await inbox.mailbox.showAll();
@@ -61,6 +64,7 @@ test.describe('Email Feature Tests', () => {
     await expect(inbox.syntaxHelp.locator).toBeVisible();
     // The table should have at least one filter syntax entry
     expect(await inbox.syntaxHelp.tableRows.count()).toBeGreaterThan(0);
+    await screenshotLocator(inbox.syntaxHelp.locator, test.info(), 'screenshots/features-syntax-help-modal.png');
 
     await inbox.syntaxHelp.close();
     await expect(inbox.syntaxHelp.locator).toBeHidden();
@@ -93,6 +97,7 @@ test.describe('Email Feature Tests', () => {
     // Switch back to html
     await bodyVersions.switchTo('html');
     await expect(bodyVersions.tab('html')).toHaveCSS('font-weight', '700');
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/features-body-version-tabs.png');
   });
 
   test('Watch-HTML body version tab is present for Apple Watch email', async () => {
@@ -109,6 +114,7 @@ test.describe('Email Feature Tests', () => {
     // Clicking it fetches the watch-html body and marks it active
     await inbox.emailView.bodyVersions.switchTo('watch-html');
     await expect(watchTab).toHaveCSS('font-weight', '700');
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/features-watch-html-tab.png');
   });
 
   test('Attachments — list and download links for multipart email', async () => {
@@ -131,6 +137,7 @@ test.describe('Email Feature Tests', () => {
     // Each link should have a valid href pointing to the attachment content endpoint
     const href = await inbox.emailView.attachmentLinks.first().getAttribute('href');
     expect(href).toMatch(/\/api\/emails\/.+\/attachments\/.+\/content/);
+    await screenshotLocator(inbox.emailView.attachmentsList, test.info(), 'screenshots/features-attachments-list.png');
   });
 
   test('Email header shows From, Date and Subject', async () => {
@@ -143,6 +150,7 @@ test.describe('Email Feature Tests', () => {
     await expect(inbox.emailView.header).toContainText('From:');
     await expect(inbox.emailView.header).toContainText('Date:');
     await expect(inbox.emailView.header).toContainText('Subject:');
+    await screenshotLocator(inbox.emailView.header, test.info(), 'screenshots/features-email-header.png');
   });
 
   test('Release modal — sender override enables the input field', async () => {
@@ -169,6 +177,7 @@ test.describe('Email Feature Tests', () => {
     await inbox.releaseModal.senderOriginalRadio.click();
     await expect(inbox.releaseModal.overrideSenderInput).toBeDisabled();
 
+    await screenshotLocator(inbox.releaseModal.locator, test.info(), 'screenshots/features-release-sender-override.png');
     await inbox.releaseModal.close();
     await expect(inbox.releaseModal.locator).toBeHidden();
   });
@@ -190,6 +199,7 @@ test.describe('Email Feature Tests', () => {
     for (let i = 0; i < rowCount; i++) {
       await expect(inbox.emailList.row(i).attachmentIcon).toBeVisible();
     }
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-has-attachment.png');
   });
 
   test('from: filter — returns only emails from the given sender', async () => {
@@ -200,6 +210,7 @@ test.describe('Email Feature Tests', () => {
     expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
     await expect(inbox.emailList.firstRow().fromCell)
       .toContainText('uniquesender@filter-test.net');
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-from.png');
   });
 
   test('before: filter — returns only emails before given date', async () => {
@@ -214,6 +225,7 @@ test.describe('Email Feature Tests', () => {
     await inbox.search.search('subject:"Old Email from 2020" before:2020-01-01');
     await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
     expect(await inbox.emailList.pagination.totalEmails()).toBe(0);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-before.png');
   });
 
   test('after: filter — returns only emails after given date', async () => {
@@ -226,6 +238,7 @@ test.describe('Email Feature Tests', () => {
     await inbox.search.search('subject:"Recent Email from 2026" after:2099-12-31');
     await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
     expect(await inbox.emailList.pagination.totalEmails()).toBe(0);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-after.png');
   });
 
   test('older_than: filter — returns only emails older than the given duration', async () => {
@@ -238,6 +251,7 @@ test.describe('Email Feature Tests', () => {
     const filtered = await inbox.emailList.pagination.totalEmails();
     expect(filtered).toBeGreaterThan(0);
     expect(filtered).toBeLessThan(totalBefore);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-older-than.png');
   });
 
   test('newer_than: filter — returns only emails newer than the given duration', async () => {
@@ -248,6 +262,7 @@ test.describe('Email Feature Tests', () => {
     expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
     await expect(inbox.emailList.firstRow().previewCell)
       .toContainText('Recent Email from 2026');
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-newer-than.png');
   });
 
   test('Combined filters — from: and has:attachment', async () => {
@@ -261,6 +276,7 @@ test.describe('Email Feature Tests', () => {
     for (let i = 0; i < count; i++) {
       await expect(inbox.emailList.row(i).attachmentIcon).toBeVisible();
     }
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-combined.png');
   });
 
   test('Quoted phrase search — finds emails matching exact phrase', async () => {
@@ -273,6 +289,7 @@ test.describe('Email Feature Tests', () => {
     await inbox.search.search('"xyzzy_no_match_phrase_abc"');
     await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
     expect(await inbox.emailList.pagination.totalEmails()).toBe(0);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-quoted-phrase.png');
   });
 
   // ── Slightly destructive (single delete) — placed last ──────────────────
@@ -291,6 +308,7 @@ test.describe('Email Feature Tests', () => {
     await expect(inbox.emailView.locator).toBeHidden();
     await expect(inbox.emailList.pagination.totalMatchesEl)
       .toHaveText((totalBefore - 1).toString());
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-delete-from-view.png');
   });
 
 });

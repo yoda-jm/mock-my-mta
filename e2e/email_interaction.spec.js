@@ -2,6 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { InboxPage }    = require('./pages/InboxPage');
+const { takeAndAttachScreenshot, screenshotLocator } = require('./helpers/screenshot');
 
 test.describe('Email Interaction Tests', () => {
   /** @type {InboxPage} */
@@ -18,6 +19,7 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.emailList.tbody).toBeVisible();
     await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
     expect(await inbox.emailList.count()).toBeGreaterThan(0);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-email-listing.png');
   });
 
   test('View an Email and Interact with Body/Attachments', async () => {
@@ -43,6 +45,8 @@ test.describe('Email Interaction Tests', () => {
       await expect(inbox.emailView.attachmentsList).toBeVisible();
       expect(await inbox.emailView.attachmentLinks.count()).toBeGreaterThan(0);
     }
+
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/interaction-view-email.png');
 
     await inbox.emailView.goBack();
     await expect(inbox.emailList.tbody).toBeVisible();
@@ -77,6 +81,7 @@ test.describe('Email Interaction Tests', () => {
     await inbox.search.clear();
     expect(await inbox.emailList.count()).toBeGreaterThan(1);
     await expect(inbox.emailList.pagination.totalMatchesEl).not.toHaveText('0');
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-search-filter.png');
   });
 
   test('Pagination (requires >20 emails — testdata has 22)', async () => {
@@ -108,6 +113,7 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.emailList.pagination.pageStartEl).toHaveText(totalPages.toString());
     await expect(inbox.emailList.pagination.nextButton).toBeDisabled();
     await expect(inbox.emailList.pagination.prevButton).toBeEnabled();
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-pagination-last-page.png');
   });
 
   test('Release an Email Modal Interaction', async () => {
@@ -134,6 +140,7 @@ test.describe('Email Interaction Tests', () => {
     await inbox.emailView.openReleaseModal();
     await expect(inbox.releaseModal.locator).toBeVisible();
 
+    await screenshotLocator(inbox.releaseModal.locator, test.info(), 'screenshots/interaction-release-modal.png');
     await inbox.releaseModal.closeX();
     await expect(inbox.releaseModal.locator).toBeHidden();
   });
@@ -150,6 +157,7 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.emailView.externalImagesToggle).not.toBeChecked();
     await inbox.emailView.externalImagesToggle.check();
     await expect(inbox.emailView.externalImagesToggle).toBeChecked();
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/interaction-external-images-toggle.png');
     await inbox.emailView.externalImagesToggle.uncheck();
     await expect(inbox.emailView.externalImagesToggle).not.toBeChecked();
   });
@@ -173,6 +181,7 @@ test.describe('Email Interaction Tests', () => {
       await expect(inbox.emailList.pagination.totalMatchesEl)
         .toHaveText((initialTotal - 1).toString());
     }
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-delete-single.png');
   });
 
   test('Delete All Emails', async () => {
@@ -188,6 +197,7 @@ test.describe('Email Interaction Tests', () => {
 
     await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
     await expect(inbox.emailList.rows()).toHaveCount(0);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-delete-all.png');
   });
 
 });

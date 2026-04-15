@@ -2,6 +2,7 @@
 
 const { test, expect } = require('@playwright/test');
 const { InboxPage }    = require('./pages/InboxPage');
+const { takeAndAttachScreenshot, screenshotLocator } = require('./helpers/screenshot');
 
 /**
  * Display and rendering tests — verifies that email content is correctly
@@ -33,6 +34,7 @@ test.describe('Email Display Tests', () => {
     await expect(header).toContainText('To:');
     await expect(header).toContainText('CC:');
     await expect(header).toContainText('cc-recipient@example.com');
+    await screenshotLocator(header, test.info(), 'screenshots/display-header-fields.png');
   });
 
   test('From display name shown in header with email as tooltip', async () => {
@@ -50,6 +52,7 @@ test.describe('Email Display Tests', () => {
     const fromSpan = inbox.emailView.header.locator('span[title="sender@example.com"]');
     await expect(fromSpan).toBeVisible();
     await expect(fromSpan).toHaveText('Sender Name');
+    await screenshotLocator(inbox.emailView.header, test.info(), 'screenshots/display-from-display-name.png');
   });
 
   test('From raw address shown in list row when no display name', async () => {
@@ -60,6 +63,7 @@ test.describe('Email Display Tests', () => {
     // The from cell should contain the raw address directly (no display name)
     const firstRow = inbox.emailList.firstRow();
     await expect(firstRow.fromCell).toContainText('uniquesender@filter-test.net');
+    await screenshotLocator(firstRow.locator, test.info(), 'screenshots/display-from-raw-address.png');
   });
 
   // ── Decoding ─────────────────────────────────────────────────────────────
@@ -82,6 +86,7 @@ test.describe('Email Display Tests', () => {
     expect(bodyText).toContain('café');
     expect(bodyText).toContain('français');
     expect(bodyText).not.toContain('=C3=');
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-quoted-printable.png');
   });
 
   test('Base64 encoded body decoded correctly', async () => {
@@ -97,6 +102,7 @@ test.describe('Email Display Tests', () => {
     });
 
     expect(bodyText).toContain('Hello World! This body is base64 encoded.');
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-base64-decoded.png');
   });
 
   test('CID images are rewritten to API endpoint in rendered HTML body', async () => {
@@ -115,6 +121,7 @@ test.describe('Email Display Tests', () => {
     });
 
     expect(imgSrc).toMatch(/^\/api\/emails\/.+\/cid\//);
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-cid-image-rewrite.png');
   });
 
   test('CID image request is served by the API (200 response)', async ({ page }) => {
@@ -131,6 +138,7 @@ test.describe('Email Display Tests', () => {
 
     expect(resp.status()).toBe(200);
     expect(resp.headers()['content-type']).toMatch(/^image\//);
+    await screenshotLocator(cidInbox.emailView.locator, test.info(), 'screenshots/display-cid-image-served.png');
   });
 
   // ── External images ───────────────────────────────────────────────────────
@@ -162,6 +170,7 @@ test.describe('Email Display Tests', () => {
       return img?.style.display ?? null;
     });
     expect(externalImgDisplayOn).toBe('');
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-external-images-toggled.png');
   });
 
   // ── Release modal: receiver override ─────────────────────────────────────
@@ -190,6 +199,7 @@ test.describe('Email Display Tests', () => {
     await inbox.releaseModal.receiversOriginalRadio.click();
     await expect(inbox.releaseModal.overrideReceiversInput).toBeDisabled();
 
+    await screenshotLocator(inbox.releaseModal.locator, test.info(), 'screenshots/display-release-receiver-override.png');
     await inbox.releaseModal.close();
     await expect(inbox.releaseModal.locator).toBeHidden();
   });
@@ -210,6 +220,7 @@ test.describe('Email Display Tests', () => {
 
     // The suggestion display should show "subject:<text>"
     await expect(suggestionDisplay).toHaveText(/subject:/);
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/display-autocomplete-suggestion.png');
   });
 
   test('Search autocomplete — Tab key completes the suggestion', async () => {
@@ -228,5 +239,6 @@ test.describe('Email Display Tests', () => {
     await inbox.search.input.press('Tab');
     await expect(inbox.search.input).toHaveValue(/subject:/);
     await expect(suggestionDisplay).toHaveText('');
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/display-autocomplete-tab-complete.png');
   });
 });
