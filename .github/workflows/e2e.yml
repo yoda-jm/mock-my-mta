@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 jobs:
   playwright:
@@ -118,3 +120,30 @@ jobs:
           name: playwright-results-json
           path: test-results/results.json
           retention-days: 30
+
+  # ── Deploy report to GitHub Pages ─────────────────────────────────────
+  deploy-report:
+    name: Deploy Report to GitHub Pages
+    needs: playwright
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download HTML report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: playwright-report/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
