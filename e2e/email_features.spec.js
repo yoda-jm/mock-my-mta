@@ -173,6 +173,108 @@ test.describe('Email Feature Tests', () => {
     await expect(inbox.releaseModal.locator).toBeHidden();
   });
 
+  // ── Search filter operators ───────────────────────────────────────────────
+
+  test('has:attachment filter — returns only emails with attachments', async () => {
+    const totalBefore = await inbox.emailList.pagination.totalEmails();
+
+    await inbox.search.search('has:attachment');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    const filteredCount = await inbox.emailList.pagination.totalEmails();
+    expect(filteredCount).toBeGreaterThan(0);
+    expect(filteredCount).toBeLessThan(totalBefore);
+
+    // Every visible row must show the paperclip icon
+    const rowCount = await inbox.emailList.count();
+    for (let i = 0; i < rowCount; i++) {
+      await expect(inbox.emailList.row(i).attachmentIcon).toBeVisible();
+    }
+  });
+
+  test('from: filter — returns only emails from the given sender', async () => {
+    // email_unique_from.eml is the only email from uniquesender@filter-test.net
+    await inbox.search.search('from:uniquesender@filter-test.net');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
+    await expect(inbox.emailList.firstRow().fromCell)
+      .toContainText('uniquesender@filter-test.net');
+  });
+
+  test('before: filter — returns only emails before given date', async () => {
+    // Combine with subject: to avoid matching zero-date emails (no Date header
+    // → time.Time{} which sorts before any real date and would match before:)
+    // email_dated_old.eml subject is "Old Email from 2020", dated 2020-06-15
+    await inbox.search.search('subject:"Old Email from 2020" before:2021-01-01');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
+
+    // Same email dated 2020-06-15 must NOT appear when cut-off is before that date
+    await inbox.search.search('subject:"Old Email from 2020" before:2020-01-01');
+    await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(0);
+  });
+
+  test('after: filter — returns only emails after given date', async () => {
+    // email_dated_recent.eml is dated 2026-04-01 — only match after 2026-01-01
+    await inbox.search.search('subject:"Recent Email from 2026" after:2026-01-01');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
+
+    // Same email should not appear for a far-future after: date
+    await inbox.search.search('subject:"Recent Email from 2026" after:2099-12-31');
+    await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(0);
+  });
+
+  test('older_than: filter — returns only emails older than the given duration', async () => {
+    // All emails except email_dated_recent (2026-04-01) are older than 1 year
+    const totalBefore = await inbox.emailList.pagination.totalEmails();
+
+    await inbox.search.search('older_than:1y');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    const filtered = await inbox.emailList.pagination.totalEmails();
+    expect(filtered).toBeGreaterThan(0);
+    expect(filtered).toBeLessThan(totalBefore);
+  });
+
+  test('newer_than: filter — returns only emails newer than the given duration', async () => {
+    // email_dated_recent.eml is dated 2026-04-01; newer_than:14d = after 2026-03-31
+    await inbox.search.search('newer_than:14d');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
+    await expect(inbox.emailList.firstRow().previewCell)
+      .toContainText('Recent Email from 2026');
+  });
+
+  test('Combined filters — from: and has:attachment', async () => {
+    // "Important information" email is from no-reply@example.com and has attachments
+    await inbox.search.search('from:no-reply@example.com has:attachment');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    const count = await inbox.emailList.pagination.totalEmails();
+    expect(count).toBeGreaterThan(0);
+    // All results must have the paperclip
+    for (let i = 0; i < count; i++) {
+      await expect(inbox.emailList.row(i).attachmentIcon).toBeVisible();
+    }
+  });
+
+  test('Quoted phrase search — finds emails matching exact phrase', async () => {
+    // email_with_specialchars.eml body contains "special characters"
+    await inbox.search.search('"special characters"');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailList.pagination.totalEmails()).toBeGreaterThan(0);
+
+    // A phrase that exists nowhere should return nothing
+    await inbox.search.search('"xyzzy_no_match_phrase_abc"');
+    await expect(inbox.emailList.emptyMessage()).toBeVisible({ timeout: 5000 });
+    expect(await inbox.emailList.pagination.totalEmails()).toBe(0);
+  });
+
   // ── Slightly destructive (single delete) — placed last ──────────────────
 
   test('Delete from email view — removes email and returns to list', async () => {

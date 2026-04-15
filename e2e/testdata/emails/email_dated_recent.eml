@@ -1,0 +1,8 @@
+Subject: Recent Email from 2026
+From: sender@example.com
+To: recipient@example.com
+Date: Wed, 01 Apr 2026 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+
+This email has a date in April 2026, used for newer_than:/after: filter testing.

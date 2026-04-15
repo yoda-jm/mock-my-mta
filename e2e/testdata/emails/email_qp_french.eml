@@ -1,0 +1,10 @@
+Subject: Quoted-Printable French Characters
+From: sender-qp@example.com
+To: receiver@example.com
+Date: Mon, 01 Feb 2021 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+Bonjour! Texte avec caract=C3=A8res sp=C3=A9ciaux:
+=C3=A9l=C3=A8ve, caf=C3=A9, fran=C3=A7ais, na=C3=AFve

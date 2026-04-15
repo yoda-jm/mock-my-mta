@@ -1,9 +1,11 @@
 'use strict';
 
-const { SearchSection }      = require('../sections/SearchSection');
-const { EmailListSection }   = require('../sections/EmailListSection');
-const { EmailViewSection }   = require('../sections/EmailViewSection');
-const { ReleaseModalSection } = require('../sections/ReleaseModalSection');
+const { SearchSection }          = require('../sections/SearchSection');
+const { EmailListSection }       = require('../sections/EmailListSection');
+const { EmailViewSection }       = require('../sections/EmailViewSection');
+const { ReleaseModalSection }    = require('../sections/ReleaseModalSection');
+const { MailboxSection }         = require('../sections/MailboxSection');
+const { SyntaxHelpModalSection } = require('../sections/SyntaxHelpModalSection');
 
 /**
  * Top-level page object for the mock-my-mta single-page application.
@@ -30,6 +32,8 @@ class InboxPage {
     this.emailList    = new EmailListSection(page);
     this.emailView    = new EmailViewSection(page);
     this.releaseModal = new ReleaseModalSection(page);
+    this.mailbox      = new MailboxSection(page);
+    this.syntaxHelp   = new SyntaxHelpModalSection(page);
   }
 
   async goto() {
