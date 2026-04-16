@@ -37,7 +37,7 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.emailView.bodyVersions.tabs().first()).toBeVisible();
     const clickedTab = await inbox.emailView.bodyVersions.clickNonActiveTab();
     if (clickedTab) {
-      await expect(clickedTab).toHaveCSS('font-weight', '700');
+      await expect(clickedTab).toHaveClass(/active/);
     }
 
     // Check attachments section if this email has a paperclip icon

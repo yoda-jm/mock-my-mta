@@ -82,21 +82,21 @@ test.describe('Email Feature Tests', () => {
 
     // html is the default preferred version — it should already be bold
     await expect(bodyVersions.tab('html')).toBeVisible();
-    await expect(bodyVersions.tab('html')).toHaveCSS('font-weight', '700');
+    await expect(bodyVersions.tab('html')).toHaveClass(/active/);
 
     // Switch to plain-text
     await bodyVersions.switchTo('plain-text');
-    await expect(bodyVersions.tab('plain-text')).toHaveCSS('font-weight', '700');
-    await expect(bodyVersions.tab('html')).not.toHaveCSS('font-weight', '700');
+    await expect(bodyVersions.tab('plain-text')).toHaveClass(/active/);
+    await expect(bodyVersions.tab('html')).not.toHaveClass('active');
 
     // Switch to raw
     await bodyVersions.switchTo('raw');
-    await expect(bodyVersions.tab('raw')).toHaveCSS('font-weight', '700');
-    await expect(bodyVersions.tab('plain-text')).not.toHaveCSS('font-weight', '700');
+    await expect(bodyVersions.tab('raw')).toHaveClass(/active/);
+    await expect(bodyVersions.tab('plain-text')).not.toHaveClass('active');
 
     // Switch back to html
     await bodyVersions.switchTo('html');
-    await expect(bodyVersions.tab('html')).toHaveCSS('font-weight', '700');
+    await expect(bodyVersions.tab('html')).toHaveClass(/active/);
     await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/features-body-version-tabs.png');
   });
 
@@ -113,7 +113,7 @@ test.describe('Email Feature Tests', () => {
 
     // Clicking it fetches the watch-html body and marks it active
     await inbox.emailView.bodyVersions.switchTo('watch-html');
-    await expect(watchTab).toHaveCSS('font-weight', '700');
+    await expect(watchTab).toHaveClass(/active/);
     await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/features-watch-html-tab.png');
   });
 

@@ -18,15 +18,15 @@ var _ Storage = &Engine{}
 // error that say that this layer does not implement the method
 type unimplementedMethodInLayerError struct {
 	methodName    string
-	phytisalLayer string
+	physicalLayer string
 }
 
 func (e *unimplementedMethodInLayerError) Error() string {
-	return fmt.Sprintf("method %s is not implemented in layer %s", e.methodName, e.phytisalLayer)
+	return fmt.Sprintf("method %s is not implemented in layer %s", e.methodName, e.physicalLayer)
 }
 
-func newUnimplementedMethodInLayerError(methodName string, phytisalLayer string) error {
-	return &unimplementedMethodInLayerError{methodName: methodName, phytisalLayer: phytisalLayer}
+func newUnimplementedMethodInLayerError(methodName string, physicalLayer string) error {
+	return &unimplementedMethodInLayerError{methodName: methodName, physicalLayer: physicalLayer}
 }
 
 func NewEngine(storagesConfiguration []StorageLayerConfiguration) (*Engine, error) {
@@ -258,7 +258,7 @@ func (e *Engine) GetRawEmail(emailID string) ([]byte, error) {
 		}
 		return message, nil
 	}
-	return nil, fmt.Errorf("no storage layer implements GetRaEmail")
+	return nil, fmt.Errorf("no storage layer implements GetRawEmail")
 }
 
 // setWithID inserts a new email into the storage.

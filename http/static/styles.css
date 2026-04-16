@@ -126,14 +126,107 @@
     padding-bottom: 20px; /* Added padding-bottom */
 }
 
-.email-body-versions {
-    border-bottom: 1px solid #ccc;
-    margin-bottom: 20px;
-    padding-bottom: 20px; /* Added padding-bottom */
+.email-body-tabs {
+    margin-bottom: 0;
+}
+
+.email-body-tabs .nav-link {
+    cursor: pointer;
+    color: #495057;
+    font-size: 0.9em;
+    padding: 6px 14px;
+}
+
+.email-body-tabs .nav-link.active {
+    font-weight: 600;
+}
+
+.email-body-tabs .nav-link .bi {
+    font-size: 0.8em;
+    margin-right: 4px;
+}
+
+.email-tab-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    margin-bottom: 12px;
+}
+
+.email-tab-content {
+    padding-top: 12px;
 }
 
 .email-content {
-    padding-top: 20px;
+    /* email body */
+}
+
+.raw-headers-content {
+    max-height: 500px;
+    overflow: auto;
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    border: 1px solid #dee2e6;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.mime-tree-content {
+    max-height: 500px;
+    overflow: auto;
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    border: 1px solid #dee2e6;
+}
+
+.mime-node {
+    padding: 4px 0;
+    border-left: 2px solid #dee2e6;
+    padding-left: 12px;
+    margin-left: 4px;
+}
+
+.mime-node:first-child {
+    border-left: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+
+.mime-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.mime-node-type {
+    font-weight: 600;
+    color: #0d6efd;
+    font-family: monospace;
+}
+
+.mime-node-details {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.mime-node-actions a {
+    font-size: 0.8em;
+    margin-left: 6px;
+    text-decoration: none;
+}
+
+.mime-node-actions a:hover {
+    text-decoration: underline;
 }
 
 .list-item {
@@ -182,48 +275,6 @@
 
 .popup-message.error {
     background-color: #dc3545;
-}
-
-/* Styles for the suggestions dropdown */
-#suggestions-dropdown {
-    position: absolute;
-    background-color: white;
-    border: 1px solid #ccc;
-    border-top: none;
-    /* The search-box has padding: 20px. The input inside it is form-control.
-       Assuming form-control takes full width within the search-box's content area.
-       The dropdown needs to align with the input, not the search-box itself.
-       The search-box has display: flex.
-       The input needs to be targeted to get its width/position or make the dropdown relative to a wrapper around the input.
-       For now, let's assume the .search-box has a known padding of 20px on left/right.
-       If the search input spans the full width available within .search-box,
-       then width: calc(100% - 40px) relative to .right-pane might be too wide.
-       A better approach is to position it relative to the .search-box itself or its parent,
-       and set left/width accordingly.
-       The provided CSS seems to assume .right-pane is the positioning parent.
-       Let's adjust width and left to be relative to .search-box potentially.
-       If .search-box is the parent, left:0 and width:100% would be a start, then adjust for padding.
-    */
-    max-height: 200px;
-    overflow-y: auto;
-    display: none; /* Initially hidden */
-    z-index: 1000;
-    /* Aligning with search input. .search-box has padding: 20px.
-       So, if .right-pane is the offset parent, left: 20px should align with the start of .search-box content.
-    */
-    top: 80px; /* Adjust as needed */
-}
-
-#suggestions-dropdown a {
-    display: block;
-    padding: 8px 12px;
-    text-decoration: none;
-    color: black;
-    cursor: pointer;
-}
-
-#suggestions-dropdown a:hover {
-    background-color: #f0f0f0;
 }
 
 #show-syntax-help {

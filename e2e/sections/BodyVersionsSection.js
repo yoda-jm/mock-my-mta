@@ -20,18 +20,19 @@ class BodyVersionsSection {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   /**
-   * Find the first non-active tab and click it.
-   * The active tab is rendered bold (font-weight 700) with no click handler;
-   * clicking it would not trigger a body reload.
-   * Returns the tab locator that was clicked, or null if all tabs are active.
+   * Find the first non-active body tab (not headers/mime-tree) and click it.
+   * Active tabs have the .active CSS class.
+   * Returns the tab locator that was clicked, or null if none found.
    */
   async clickNonActiveTab() {
-    const allTabs = this.tabs();
-    const count   = await allTabs.count();
+    const bodyTabs = this.page.locator(
+      '[data-testid^="email-body-version-tab-"]:not([data-testid="email-body-version-tab-headers"]):not([data-testid="email-body-version-tab-mime-tree"])'
+    );
+    const count = await bodyTabs.count();
     for (let i = 0; i < count; i++) {
-      const tab        = allTabs.nth(i);
-      const fontWeight = await tab.evaluate(el => window.getComputedStyle(el).fontWeight);
-      if (fontWeight !== '700') {
+      const tab = bodyTabs.nth(i);
+      const isActive = await tab.evaluate(el => el.classList.contains('active'));
+      if (!isActive) {
         const resp = this.page.waitForResponse(r => r.url().includes('/body/'));
         await tab.click();
         await resp;

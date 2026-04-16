@@ -59,13 +59,16 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	// Define the API routes
 
 	// Mailboxes
-	apiRouter.HandleFunc(("/mailboxes"), s.getMailboxes).Methods("GET")
+	apiRouter.HandleFunc("/mailboxes", s.getMailboxes).Methods("GET")
 	// Emails
 	apiRouter.HandleFunc("/emails/", s.getEmails).Methods("GET")
 	apiRouter.HandleFunc("/emails/", s.deleteEmails).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/headers", s.getEmailHeaders).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/download", s.downloadEmail).Methods("GET")
+	apiRouter.HandleFunc("/emails/{email_id}/mime-tree", s.getMimeTree).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/relay", s.getRelayData).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}/relay", s.relayMessage).Methods("POST")
 	// Attachments
@@ -345,6 +348,62 @@ func (s *Server) getBodyVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, body)
 }
 
+func (s *Server) getEmailHeaders(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "getting headers for email: %v", emailID)
+
+	rawEmail, err := s.store.GetRawEmail(emailID)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get raw email (id=%v): %v", emailID, err)
+		return
+	}
+
+	parsedMail, err := multipart.ParseEmailFromBytes(rawEmail)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot parse email (id=%v): %v", emailID, err)
+		return
+	}
+
+	writeJSONResponse(w, parsedMail.GetAllHeaders())
+}
+
+func (s *Server) downloadEmail(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "downloading email: %v", emailID)
+
+	rawEmail, err := s.store.GetRawEmail(emailID)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get raw email (id=%v): %v", emailID, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "message/rfc822")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.eml\"", emailID))
+	w.Write(rawEmail)
+}
+
+func (s *Server) getMimeTree(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	emailID := vars["email_id"]
+	logf(generateRequestID(), r, log.DEBUG, "getting MIME tree for email: %v", emailID)
+
+	rawEmail, err := s.store.GetRawEmail(emailID)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot get raw email (id=%v): %v", emailID, err)
+		return
+	}
+
+	parsedMail, err := multipart.ParseEmailFromBytes(rawEmail)
+	if err != nil {
+		writeErrorResponse(w, http.StatusInternalServerError, "cannot parse email (id=%v): %v", emailID, err)
+		return
+	}
+
+	writeJSONResponse(w, parsedMail.GetMimeTree())
+}
+
 func (s *Server) getAttachments(w http.ResponseWriter, r *http.Request) {
 	// Get the email ID from the URL
 	vars := mux.Vars(r)
@@ -437,7 +496,7 @@ func (s *Server) getPartByCID(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(body))
 }
 
-type PaginnationResponse struct {
+type PaginationResponse struct {
 	CurrentPage  int  `json:"current_page"`
 	IsFirstPage  bool `json:"is_first_page"`
 	IsLastPage   bool `json:"is_last_page"`
@@ -447,8 +506,7 @@ type PaginnationResponse struct {
 
 type SearchEmailsResponse struct {
 	Emails []storage.EmailHeader `json:"emails"`
-	// FIXME: add a nice pagination result
-	Paginnation PaginnationResponse `json:"pagination"`
+	Pagination PaginationResponse `json:"pagination"`
 }
 
 func (s *Server) deleteEmails(w http.ResponseWriter, r *http.Request) {
@@ -489,7 +547,7 @@ func (s *Server) getEmails(w http.ResponseWriter, r *http.Request) {
 	// Create the response
 	searchResponse := SearchEmailsResponse{
 		Emails: emailHeaders,
-		Paginnation: PaginnationResponse{
+		Pagination: PaginationResponse{
 			CurrentPage:  page,
 			IsFirstPage:  isFirstPage,
 			IsLastPage:   isLastPage,

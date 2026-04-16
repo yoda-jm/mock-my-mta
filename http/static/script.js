@@ -4,13 +4,6 @@ $(function () {
     const searchInput = $('.search-box input[type="text"]');
     const suggestionDisplay = $('#suggestion-display');
 
-    // Add a document click listener to hide dropdown if clicked outside
-    // $(document).on('click', function(event) { // OLD LOGIC - REMOVE
-    //     // Check if the click target is not the search input and not part of the suggestions dropdown
-    //     if (!$(event.target).is(searchInput) && !$(event.target).closest(suggestionsDropdown).length) { // OLD LOGIC - REMOVE
-    //         clearAndHideDropdown(); // OLD LOGIC - REMOVE
-    //     }
-    // });
 
     searchInput.on('keyup', function (e) {
         // Ignore arrow keys, shift, ctrl, alt, meta, escape, enter for suggestion logic
@@ -29,9 +22,6 @@ $(function () {
         const tokenStart = (lastSpace === -1) ? 0 : lastSpace + 1;
         const currentToken = textBeforeCursor.substring(tokenStart);
 
-        // suggestionsDropdown.data('tokenStart', tokenStart); // OLD LOGIC - REMOVE
-        // suggestionsDropdown.data('currentTokenLength', currentToken.length); // OLD LOGIC - REMOVE
-
         if (currentToken.trim() === '') {
             suggestionDisplay.text(''); // MODIFIED
             return;
@@ -41,7 +31,6 @@ $(function () {
             url: `/api/filters/suggestions?term=${encodeURIComponent(currentToken)}`,
             type: 'GET',
             success: function (data) {
-                // clearSuggestions(); // OLD LOGIC - REMOVE
                 if (data && data.length > 0) {
                     const firstSuggestionCandidate = data[0]; // This is the suggestion for currentToken
                     const textBeforeToken = fullText.substring(0, tokenStart);
@@ -101,15 +90,8 @@ $(function () {
     });
 
     searchInput.on('blur', function () {
-        // Delay hiding to allow click on suggestion
-        setTimeout(function() { suggestionDisplay.text(''); }, 150); // MODIFIED
+        setTimeout(function() { suggestionDisplay.text(''); }, 150);
     });
-
-    // $(document).on('keydown', function (e) { // OLD LOGIC - REMOVE (Replaced by specific keydown on searchInput)
-    //     if (e.key === "Escape") { // Modern browsers use "Escape"
-    //         clearAndHideDropdown(); // OLD LOGIC - REMOVE
-    //     }
-    // });
 
     // Event listener for the syntax help icon
     $('#show-syntax-help').on('click', function () {
@@ -158,6 +140,12 @@ $(function () {
     $('[data-testid="email-view-release-button"]').click(function () {
         if (currentEmailId) {
             displayReleaseModal(currentEmailId);
+        }
+    });
+
+    $('[data-testid="email-view-download-button"]').click(function () {
+        if (currentEmailId) {
+            window.location.href = '/api/emails/' + currentEmailId + '/download';
         }
     });
 
@@ -213,7 +201,7 @@ $(function () {
             success: function (data) {
                 // log data
                 console.log(data);
-                modal = $('#releaseEmailModal');
+                const modal = $('#releaseEmailModal');
                 // fill the modal with the data
                 $('#emailId').val(emailId);
                 $('#originalSender').val(data.sender.address);
@@ -302,7 +290,7 @@ $(function () {
         }
     });
 
-    $('[data-toggle="collapse"]').click(function () {
+    $('[data-bs-toggle="collapse"]').click(function () {
         if ($(this).find('.icon').hasClass('bi-chevron-right')) {
             refreshMailboxes();
             // replace with a refresh icon
@@ -378,7 +366,7 @@ $(function () {
                 for (var i = 0; i < data.length; i++) {
                     // Add mailbox to mailboxList, allow text to overflow
                     var mailbox = data[i];
-                    $('#mailboxList').append(generateMaiboxListItem(mailbox));
+                    $('#mailboxList').append(generateMailboxListItem(mailbox));
                 }
             },
             error: function (error) {
@@ -405,8 +393,8 @@ $(function () {
     }
 
     function refreshEmailList() {
-        query = $('.search-box input').val();
-        page = $('#page-start').text();
+        const query = $('.search-box input').val();
+        const page = $('#page-start').text();
         $.ajax({
             url: '/api/emails/',
             type: 'GET',
@@ -417,8 +405,8 @@ $(function () {
             success: function (data) {
                 // update the email list and pagination
                 console.log('Updating email list');
-                emails = data.emails;
-                emailList = $('.email-list .email-table tbody');
+                const emails = data.emails;
+                const emailList = $('.email-list .email-table tbody');
                 emailList.empty();
                 if (emails == null || emails.length == 0) {
                     emailList.append(generateEmptyEmailListItem());
@@ -460,13 +448,13 @@ $(function () {
             success: function (data) {
                 // update the email attachments
                 console.log('Updating email attachments');
-                attachments = data;
-                attachmentList = $('.email-attachments');
+                const attachments = data;
+                const attachmentList = $('.email-attachments');
                 attachmentList.empty();
                 if (attachments == null || attachments.length == 0) {
                     return;
                 }
-                attachmentsHtml = $('<span>');
+                const attachmentsHtml = $('<span>');
                 for (var i = 0; i < attachments.length; i++) {
                     var attachment = attachments[i];
                     // I have content_type, size, filename, id, coma separated links in spans on the same line
@@ -497,8 +485,8 @@ $(function () {
     }
 
     function renderEmailBody(selectedBodyVersion, data) {
-        // Render the email body
         console.log('Rendering email body ' + selectedBodyVersion + ' version');
+        hideExtraPanels();
         $('.email-content').empty();
         var shadowRoot = openShadowRootNotExisting();
         // FIXME: why is the CSP not working?
@@ -540,36 +528,237 @@ $(function () {
     function pickBestBodyVersion(bodyVersions) {
         // Pick the best body version
         console.log('Picking best body version');
-        preferedBodyVersions = ['html', 'watch-html', 'plain-text', 'raw'];
-        for (var i = 0; i < preferedBodyVersions.length; i++) {
-            if (bodyVersions.includes(preferedBodyVersions[i])) {
-                return preferedBodyVersions[i];
+        const preferredBodyVersions = ['html', 'watch-html', 'plain-text', 'raw'];
+        for (var i = 0; i < preferredBodyVersions.length; i++) {
+            if (bodyVersions.includes(preferredBodyVersions[i])) {
+                return preferredBodyVersions[i];
             }
         }
         return 'raw';
     }
 
+    const TAB_ICONS = {
+        'html': 'bi-code-slash',
+        'plain-text': 'bi-file-text',
+        'raw': 'bi-file-binary',
+        'watch-html': 'bi-smartwatch',
+        'headers': 'bi-card-heading',
+        'mime-tree': 'bi-diagram-3',
+    };
+
     function updateEmailBodyVersions(bodyVersions, selectedBodyVersion, emailId) {
-        // Update the email body versions
-        console.log('Updating email body versions');
-        $('.email-body-versions').empty();
-        $('.email-body-versions').append($('<strong>').text('Body versions: '));
-        for (var i = 0; i < bodyVersions.length; i++) {
-            let bodyVersion = bodyVersions[i];
-            let testId = `email-body-version-tab-${bodyVersion.toLowerCase().replace(' ', '-')}`;
-            if (bodyVersion == selectedBodyVersion) {
-                $('.email-body-versions').append($('<span>').text(bodyVersion).css('font-weight', 'bold').attr('data-testid', testId));
+        const tabs = $('.email-body-tabs');
+        tabs.empty();
+
+        const allTabs = bodyVersions.concat(['headers', 'mime-tree']);
+        for (let i = 0; i < allTabs.length; i++) {
+            let tabName = allTabs[i];
+            let testId = `email-body-version-tab-${tabName.toLowerCase().replace(' ', '-')}`;
+            let icon = TAB_ICONS[tabName] || 'bi-file-earmark';
+            let li = $('<li class="nav-item">');
+            let link = $('<a class="nav-link">')
+                .attr('data-testid', testId)
+                .attr('role', 'tab')
+                .html(`<i class="bi ${icon}"></i> ${tabName}`);
+
+            if (tabName === selectedBodyVersion) {
+                link.addClass('active');
             } else {
-                $('.email-body-versions').append($('<span>').text(bodyVersion).attr('data-testid', testId).click(function () {
-                    console.log('Switching to body version ' + bodyVersion);
-                    updateEmailBodyVersions(bodyVersions, bodyVersion, emailId);
-                    updateEmailBody(bodyVersion, emailId);
-                }));
+                link.click(function () {
+                    updateEmailBodyVersions(bodyVersions, tabName, emailId);
+                    if (tabName === 'headers') {
+                        showRawHeaders(emailId);
+                    } else if (tabName === 'mime-tree') {
+                        showMimeTree(emailId);
+                    } else {
+                        hideExtraPanels();
+                        updateEmailBody(tabName, emailId);
+                    }
+                });
             }
-            if (i < bodyVersions.length - 1) {
-                $('.email-body-versions').append(', ');
+            li.append(link);
+            tabs.append(li);
+        }
+
+        // Show/hide external images toggle only for HTML body versions
+        const isHtmlTab = (selectedBodyVersion === 'html' || selectedBodyVersion === 'watch-html');
+        if (isHtmlTab) {
+            $('#externalImagesToggleContainer').show();
+            $('.email-tab-toolbar').show();
+        } else {
+            $('#externalImagesToggleContainer').hide();
+            $('.email-tab-toolbar').hide();
+        }
+    }
+
+    function hideExtraPanels() {
+        $('.email-raw-headers').hide();
+        $('.email-mime-tree').hide();
+        $('.email-content').show();
+    }
+
+    function showRawHeaders(emailId) {
+        $('.email-content').hide();
+        $('.email-mime-tree').hide();
+        $('.email-tab-toolbar').hide();
+        $.ajax({
+            url: '/api/emails/' + emailId + '/headers',
+            type: 'GET',
+            success: function (data) {
+                let text = '';
+                // Sort headers for consistent display
+                const keys = Object.keys(data).sort();
+                for (const key of keys) {
+                    for (const value of data[key]) {
+                        text += key + ': ' + value + '\n';
+                    }
+                }
+                $('.raw-headers-content').text(text);
+                $('.email-raw-headers').show();
+            }
+        });
+    }
+
+    function showMimeTree(emailId) {
+        $('.email-content').hide();
+        $('.email-raw-headers').hide();
+        $('.email-tab-toolbar').hide();
+        $.ajax({
+            url: '/api/emails/' + emailId + '/mime-tree',
+            type: 'GET',
+            success: function (data) {
+                $('.mime-tree-content').empty().append(renderMimeTreeNode(data, emailId, 0));
+                $('.email-mime-tree').show();
+            }
+        });
+    }
+
+    function renderMimeTreeNode(node, emailId, depth) {
+        const container = $('<div>').addClass(depth > 0 ? 'mime-node' : '');
+
+        // Header row: icon + type + details + actions
+        const header = $('<div class="mime-node-header">');
+
+        // Type badge
+        const typeSpan = $('<span class="mime-node-type">').text(node.content_type);
+        header.append(typeSpan);
+
+        // Details
+        const details = [];
+        if (node.charset) details.push('charset=' + node.charset);
+        if (node.encoding) details.push(node.encoding);
+        if (node.size > 0 && !node.children) details.push(formatSize(node.size));
+        if (node.content_id) details.push('CID: ' + node.content_id);
+
+        if (details.length > 0) {
+            header.append($('<span class="mime-node-details">').text(details.join(' · ')));
+        }
+
+        // Filename badge
+        if (node.filename) {
+            header.append($('<span class="badge bg-secondary">').text(node.filename));
+        }
+
+        // Disposition badge
+        if (node.disposition) {
+            const dispType = node.disposition.split(';')[0].trim();
+            const badgeClass = dispType === 'attachment' ? 'bg-info' : 'bg-warning';
+            header.append($('<span class="badge ' + badgeClass + '">').text(dispType));
+        }
+
+        // Actions (for leaf nodes with content)
+        if (!node.children && node.size > 0) {
+            const actions = $('<span class="mime-node-actions">');
+            const ct = node.content_type.split(';')[0].trim();
+            const isAttachment = node.disposition && node.disposition.startsWith('attachment');
+
+            // "view" action — switch to the matching body tab for non-attachment body parts
+            if (ct === 'text/html' && !isAttachment) {
+                actions.append(
+                    $('<a href="#" class="text-primary">').html('<i class="bi bi-eye"></i> view')
+                        .attr('title', 'Switch to HTML tab')
+                        .click(function(e) {
+                            e.preventDefault();
+                            const tab = $('[data-testid="email-body-version-tab-html"]');
+                            if (tab.length) tab.click();
+                        })
+                );
+            } else if (ct === 'text/plain' && !isAttachment) {
+                actions.append(
+                    $('<a href="#" class="text-primary">').html('<i class="bi bi-eye"></i> view')
+                        .attr('title', 'Switch to plain-text tab')
+                        .click(function(e) {
+                            e.preventDefault();
+                            const tab = $('[data-testid="email-body-version-tab-plain-text"]');
+                            if (tab.length) tab.click();
+                        })
+                );
+            } else if (ct === 'text/watch-html' && !isAttachment) {
+                actions.append(
+                    $('<a href="#" class="text-primary">').html('<i class="bi bi-eye"></i> view')
+                        .attr('title', 'Switch to watch-html tab')
+                        .click(function(e) {
+                            e.preventDefault();
+                            const tab = $('[data-testid="email-body-version-tab-watch-html"]');
+                            if (tab.length) tab.click();
+                        })
+                );
+            }
+
+            // "preview" action for CID parts (images, etc.)
+            if (node.content_id) {
+                const cidUrl = '/api/emails/' + emailId + '/cid/' + node.content_id;
+                actions.append(
+                    $('<a href="#" class="text-secondary">').html('<i class="bi bi-eye"></i> preview')
+                        .attr('title', 'Preview content')
+                        .click(function(e) {
+                            e.preventDefault();
+                            showMimePreview(ct, cidUrl, node.filename || node.content_id);
+                        })
+                );
+            }
+
+            header.append(actions);
+        }
+
+        container.append(header);
+
+        // Recursively render children
+        if (node.children) {
+            for (const child of node.children) {
+                container.append(renderMimeTreeNode(child, emailId, depth + 1));
             }
         }
+        return container;
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function showMimePreview(contentType, url, title) {
+        const body = $('#mimePreviewBody');
+        body.empty();
+        $('#mimePreviewModalLabel').text(title || 'Part Preview');
+        $('#mimePreviewOpenLink').attr('href', url);
+
+        if (contentType.startsWith('image/')) {
+            body.append($('<img>').attr('src', url).css({'max-width': '100%', 'max-height': '70vh'}));
+        } else if (contentType.startsWith('text/')) {
+            // Fetch and display text content
+            $.get(url, function(data) {
+                body.append($('<pre>').text(typeof data === 'string' ? data : JSON.stringify(data, null, 2))
+                    .css({'text-align': 'left', 'max-height': '60vh', 'overflow': 'auto', 'background': '#f8f9fa', 'padding': '12px', 'border-radius': '4px'}));
+            });
+        } else {
+            body.append($('<p class="text-muted">').text('Preview not available for ' + contentType));
+            body.append($('<a>').attr('href', url).attr('target', '_blank').text('Open in new tab'));
+        }
+
+        const modal = new bootstrap.Modal($('#mimePreviewModal')[0]);
+        modal.show();
     }
 
     function updateEmailContent(email) {
@@ -578,7 +767,7 @@ $(function () {
         currentEmailId = email.id;
         updateEmailContentHeader(email);
         updateEmailAttachments(email.id);
-        selectedBodyVersion = pickBestBodyVersion(email.body_versions);
+        const selectedBodyVersion = pickBestBodyVersion(email.body_versions);
         updateEmailBodyVersions(email.body_versions, selectedBodyVersion, email.id);
         updateEmailBody(selectedBodyVersion, email.id);
     }
@@ -586,11 +775,10 @@ $(function () {
     function generateEmptyEmailListItem() {
         // display a nice message telling the user that there are no emails, centered and colspan on the complete row
         // with a warning icon
-        return $('<tr class="email-item">').append($('<td colspan="4">')
-            .append($('<center>')
+        return $('<tr class="email-item">').append($('<td colspan="4" class="text-center">')
                 .append($('<i class="bi bi-exclamation-triangle icon">'))
                 .append(' ')
-                .append($('<span>').text('No emails found'))));
+                .append($('<span>').text('No emails found')));
     }
 
     function deleteEmail(emailId) {
@@ -643,7 +831,7 @@ $(function () {
             });
     }
 
-    function generateMaiboxListItem(mailbox) {
+    function generateMailboxListItem(mailbox) {
         return $('<li class="list-item">')
             .attr('data-testid', `mailbox-item-${mailbox.name}`)
             .text(mailbox.name)

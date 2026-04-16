@@ -179,19 +179,19 @@ func (s *filesystemStorage) GetMailboxes() ([]Mailbox, error) {
 		return nil, err
 	}
 	// extract the recipients from the emails
-	recipents := make(map[string]bool)
+	recipients := make(map[string]bool)
 	for _, emailID := range emailIDs {
 		multipart, err := s.loadEmailFromID(emailID)
 		if err != nil {
 			return nil, err
 		}
 		for _, address := range multipart.GetRecipients() {
-			recipents[address.Address] = true
+			recipients[address.Address] = true
 		}
 	}
 	// create the mailboxes
-	mailboxes := make([]Mailbox, 0, len(recipents))
-	for address := range recipents {
+	mailboxes := make([]Mailbox, 0, len(recipients))
+	for address := range recipients {
 		mailboxes = append(mailboxes, Mailbox{Name: address})
 	}
 	sort.Slice(mailboxes, func(i, j int) bool {

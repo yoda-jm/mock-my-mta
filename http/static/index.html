@@ -20,7 +20,7 @@
             </div>
             <ul class="mailboxes">
                 <li id="allEmails" data-testid="all-emails-link">All</li>
-                <li data-toggle="collapse" data-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList" data-testid="mailbox-toggle">
+                <li data-bs-toggle="collapse" data-bs-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList" data-testid="mailbox-toggle">
                     Mailbox
                     <i class="bi bi-chevron-right icon"></i>
                 </li>
@@ -86,8 +86,11 @@
             <div class="email-view">
                 <div class="d-flex justify-content-between mb-3">
                     <i class="bi bi-arrow-left icon" title="Back..." data-testid="email-view-back-button"></i>
-                    <i class="bi bi-envelope-arrow-up icon" title="Release..." data-testid="email-view-release-button"></i>
-                    <i class="bi bi-trash icon" title="Delete" data-testid="email-view-delete-button"></i>
+                    <div>
+                        <i class="bi bi-download icon" title="Download .eml" data-testid="email-view-download-button"></i>
+                        <i class="bi bi-envelope-arrow-up icon" title="Release..." data-testid="email-view-release-button"></i>
+                        <i class="bi bi-trash icon" title="Delete" data-testid="email-view-delete-button"></i>
+                    </div>
                 </div>
                 <div class="email-header">
                     <!-- Email header goes here -->
@@ -95,15 +98,25 @@
                 <div class="email-attachments" data-testid="email-attachments-list">
                     <!-- List of attachments -->
                 </div>
-                <div class="email-body-versions" data-testid="email-body-versions">
-                    <!-- List of email body versions -->
+                <ul class="email-body-tabs nav nav-tabs" data-testid="email-body-versions" role="tablist">
+                    <!-- Tabs injected by JS -->
+                </ul>
+                <div class="email-tab-toolbar" style="display:none;">
+                    <div class="form-check form-switch" id="externalImagesToggleContainer" style="display:none;">
+                        <input class="form-check-input" type="checkbox" role="switch" id="displayExternalImagesToggle" data-testid="email-view-display-external-images-toggle">
+                        <label class="form-check-label" for="displayExternalImagesToggle">Display external images</label>
+                    </div>
                 </div>
-                <div class="form-check form-switch my-2 px-3">
-                    <input class="form-check-input" type="checkbox" role="switch" id="displayExternalImagesToggle" data-testid="email-view-display-external-images-toggle">
-                    <label class="form-check-label" for="displayExternalImagesToggle">Display external images</label>
-                </div>
-                <div class="email-content">
-                    <!-- Email content goes here -->
+                <div class="email-tab-content">
+                    <div class="email-content">
+                        <!-- Email body goes here -->
+                    </div>
+                    <div class="email-raw-headers" data-testid="email-raw-headers" style="display:none;">
+                        <pre class="raw-headers-content"></pre>
+                    </div>
+                    <div class="email-mime-tree" data-testid="email-mime-tree" style="display:none;">
+                        <div class="mime-tree-content"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -203,6 +216,27 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- MIME part preview modal -->
+    <div class="modal fade" id="mimePreviewModal" tabindex="-1" aria-labelledby="mimePreviewModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h6 class="modal-title" id="mimePreviewModalLabel">Part Preview</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center" id="mimePreviewBody">
+            <!-- Content injected by JS -->
+          </div>
+          <div class="modal-footer">
+            <a href="#" id="mimePreviewOpenLink" target="_blank" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-box-arrow-up-right"></i> Open in new tab
+            </a>
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Error popup  -->
