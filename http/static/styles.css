@@ -79,10 +79,15 @@
 
 .email-item td.sender {
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0; /* forces td to respect table-layout:fixed width */
 }
 
 .email-item td.date {
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .search-box { /* Separated from .pagination-nav for individual padding */
