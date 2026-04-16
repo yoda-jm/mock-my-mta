@@ -1,0 +1,7 @@
+From: plain-sender@example.com
+To: recipient@example.com
+Subject: Email Without Content-Type Header
+Date: Fri, 05 Jul 2024 10:00:00 +0000
+
+This email has no Content-Type header at all.
+Per RFC 2822, it should default to text/plain and be displayed correctly.

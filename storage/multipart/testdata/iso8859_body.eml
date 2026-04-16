@@ -1,0 +1,8 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: ISO-8859-1 Body
+MIME-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Caf=E9 cr=E8me br=FBl=E9e

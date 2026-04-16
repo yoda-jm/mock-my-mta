@@ -241,4 +241,58 @@ test.describe('Email Display Tests', () => {
     await expect(suggestionDisplay).toHaveText('');
     await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/display-autocomplete-tab-complete.png');
   });
+
+  // ── Bug regression tests (expected to FAIL until fixed) ───────────────
+
+  test('Pure HTML email preview should not contain HTML tags', async () => {
+    await inbox.search.search('subject:Pure HTML Email No Plaintext');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // The preview cell in the email list should show readable text, not raw HTML
+    const previewText = await inbox.emailList.firstRow().previewCell.textContent();
+    expect(previewText).not.toContain('<html>');
+    expect(previewText).not.toContain('<body>');
+    expect(previewText).not.toContain('<p>');
+    expect(previewText).not.toContain('<h1>');
+    expect(previewText).toContain('Welcome');
+
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/display-html-only-preview.png');
+  });
+
+  test('Email without Content-Type header displays body as plain text', async () => {
+    await inbox.search.search('subject:Email Without Content-Type Header');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    await inbox.emailList.firstRow().open();
+
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    // The body should be displayed — the email defaults to text/plain per RFC 2822
+    const bodyText = await inbox.page.evaluate(() => {
+      const host = document.querySelector('.email-content');
+      return host?.shadowRoot?.textContent ?? '';
+    });
+    expect(bodyText).toContain('no Content-Type header');
+
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-no-content-type.png');
+  });
+
+  test('ISO-8859-1 charset email body decoded correctly', async () => {
+    await inbox.search.search('subject:ISO-8859-1 Charset Email');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    await inbox.emailList.firstRow().open();
+
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    const bodyText = await inbox.page.evaluate(() => {
+      const host = document.querySelector('.email-content');
+      return host?.shadowRoot?.textContent ?? '';
+    });
+
+    // After proper charset decoding, should show French characters
+    expect(bodyText).toContain('Café');
+    expect(bodyText).toContain('crème');
+    expect(bodyText).toContain('brûlée');
+
+    await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-iso8859-charset.png');
+  });
 });

@@ -1,0 +1,9 @@
+From: european-sender@example.com
+To: recipient@example.com
+Subject: ISO-8859-1 Charset Email
+Date: Sat, 06 Jul 2024 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Caf=E9 cr=E8me br=FBl=E9e, gar=E7on!=0D=0AUne enqu=EAte fran=E7aise.

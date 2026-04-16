@@ -1,0 +1,6 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: No Content-Type Header
+
+This email has no Content-Type header at all.
+Per RFC 2822, it defaults to text/plain.

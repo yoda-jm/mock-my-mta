@@ -1,0 +1,20 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: RFC 2231 Filename
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="rfc2231bound"
+
+--rfc2231bound
+Content-Type: text/plain; charset="utf-8"
+
+Email with RFC 2231 encoded attachment filename.
+
+--rfc2231bound
+Content-Type: application/pdf
+Content-Disposition: attachment;
+ filename*=UTF-8''t%C3%A9st%20r%C3%A9sum%C3%A9.pdf
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjAK
+
+--rfc2231bound--

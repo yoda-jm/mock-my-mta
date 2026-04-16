@@ -1,0 +1,15 @@
+From: html-sender@example.com
+To: recipient@example.com
+Subject: Pure HTML Email No Plaintext
+Date: Thu, 04 Jul 2024 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<html>
+  <body>
+    <h1>Welcome</h1>
+    <p>This email only has an HTML body with no plain text alternative.</p>
+    <p>The preview in the email list should show readable text, not raw HTML tags.</p>
+  </body>
+</html>

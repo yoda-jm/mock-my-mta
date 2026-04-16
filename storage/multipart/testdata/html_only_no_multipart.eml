@@ -1,0 +1,13 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: HTML Only No Multipart
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<html>
+<body>
+<h1>Welcome</h1>
+<p>This is a pure HTML email with no plain text alternative.</p>
+</body>
+</html>

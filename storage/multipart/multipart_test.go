@@ -355,10 +355,13 @@ func TestMultipartAlternative(t *testing.T) {
 
 	t.Run("AlternativeOnlyHTML", func(t *testing.T) {
 		mp := loadTestEmail(t, filepath.Join(basePath, "alternative_only_html.eml"))
-		// expectedHTMLPreview is used implicitly by the HasPrefix check
 		preview := mp.GetPreview()
-		if !strings.HasPrefix(preview, "<html><body><p>This is the <b>HTML</b> part only.") { // Check prefix due to potential truncation
-			t.Errorf("GetPreview() got %q, want prefix %q", preview, "<html><body><p>This is the <b>HTML</b> part only.")
+		// Preview should NOT contain HTML tags — they must be stripped
+		if strings.Contains(preview, "<") || strings.Contains(preview, ">") {
+			t.Errorf("GetPreview() should not contain HTML tags, got %q", preview)
+		}
+		if !strings.Contains(preview, "This is the") {
+			t.Errorf("GetPreview() should contain readable text, got %q", preview)
 		}
 
 		plainBody, err := mp.GetBody("plain-text")
@@ -472,6 +475,101 @@ func TestMultipartAlternative(t *testing.T) {
 			if !expectedVersions[v] {
 				t.Errorf("GetBodyVersions() got unexpected version %q in %v", v, versions)
 			}
+		}
+	})
+
+	// --- Bug fix tests (expected to FAIL until fixed) ---
+
+	t.Run("HTMLOnlyNoMultipart_PreviewStripsHTML", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "html_only_no_multipart.eml"))
+
+		preview := mp.GetPreview()
+		// Preview must NOT contain HTML tags
+		if strings.Contains(preview, "<") || strings.Contains(preview, ">") {
+			t.Errorf("GetPreview() should strip HTML tags, got %q", preview)
+		}
+		// Preview should contain the readable text
+		if !strings.Contains(preview, "Welcome") {
+			t.Errorf("GetPreview() should contain 'Welcome', got %q", preview)
+		}
+		if !strings.Contains(preview, "pure HTML email") {
+			t.Errorf("GetPreview() should contain 'pure HTML email', got %q", preview)
+		}
+	})
+
+	t.Run("NoContentType_GetBodyPlainText", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "no_content_type.eml"))
+
+		// Email with no Content-Type should default to text/plain
+		body, err := mp.GetBody("plain-text")
+		if err != nil {
+			t.Errorf("GetBody(\"plain-text\") returned error: %v", err)
+		}
+		if body == "" {
+			t.Errorf("GetBody(\"plain-text\") returned empty string, want body content")
+		}
+		if !strings.Contains(body, "no Content-Type header") {
+			t.Errorf("GetBody(\"plain-text\") got %q, want to contain 'no Content-Type header'", body)
+		}
+
+		// Preview should also work
+		preview := mp.GetPreview()
+		if preview == "" {
+			t.Errorf("GetPreview() returned empty for email without Content-Type")
+		}
+
+		// Body versions should include plain-text
+		versions := mp.GetBodyVersions()
+		found := false
+		for _, v := range versions {
+			if v == "plain-text" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("GetBodyVersions() = %v, want to include 'plain-text'", versions)
+		}
+	})
+
+	t.Run("ISO8859Body_CharsetDecoded", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "iso8859_body.eml"))
+
+		body, err := mp.GetBody("plain-text")
+		if err != nil {
+			t.Errorf("GetBody(\"plain-text\") returned error: %v", err)
+		}
+
+		// After proper charset decoding, ISO-8859-1 bytes should be UTF-8
+		// E9=é, E8=è, FB=û, E7=ç, EA=ê
+		if !strings.Contains(body, "Café") {
+			t.Errorf("GetBody(\"plain-text\") should contain 'Café' (decoded from ISO-8859-1), got %q", body)
+		}
+		if !strings.Contains(body, "crème") {
+			t.Errorf("GetBody(\"plain-text\") should contain 'crème' (decoded from ISO-8859-1), got %q", body)
+		}
+		if !strings.Contains(body, "brûlée") {
+			t.Errorf("GetBody(\"plain-text\") should contain 'brûlée' (decoded from ISO-8859-1), got %q", body)
+		}
+	})
+
+	t.Run("RFC2231Filename_Decoded", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "rfc2231_filename.eml"))
+
+		if !mp.HasAttachments() {
+			t.Fatal("HasAttachments() returned false, want true")
+		}
+
+		attachments := mp.GetAttachments()
+		var foundFilename string
+		for _, att := range attachments {
+			foundFilename = att.GetFilename()
+		}
+
+		// RFC 2231 encoded filename*=UTF-8''t%C3%A9st%20r%C3%A9sum%C3%A9.pdf
+		// should decode to: tést résumé.pdf
+		expected := "tést résumé.pdf"
+		if foundFilename != expected {
+			t.Errorf("GetFilename() = %q, want %q (RFC 2231 decoded)", foundFilename, expected)
 		}
 	})
 

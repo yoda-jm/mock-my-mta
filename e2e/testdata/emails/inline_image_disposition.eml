@@ -1,0 +1,26 @@
+From: inline-sender@example.com
+To: recipient@example.com
+Subject: Inline Image Disposition
+Date: Mon, 08 Jul 2024 10:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="inlineboundary"
+
+--inlineboundary
+Content-Type: text/html; charset="utf-8"
+
+<html>
+  <body>
+    <p>This email has an inline image:</p>
+    <img src="cid:inlineimg001">
+  </body>
+</html>
+
+--inlineboundary
+Content-Type: image/png
+Content-Disposition: inline; filename="logo.png"
+Content-ID: <inlineimg001>
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==
+
+--inlineboundary--
