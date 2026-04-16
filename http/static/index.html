@@ -14,23 +14,40 @@
 
 <body>
     <div class="email-app">
-        <div class="left-pane p-3">
-            <div class="mb-3">
-                <img src="logo.png" alt="Logo" style="max-width: 100%;">
+        <div class="left-pane">
+            <div class="sidebar-header">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="sidebar-brand">
+                        <i class="bi bi-mailbox2 sidebar-brand-icon"></i>
+                        <span class="sidebar-brand-text">MockMyMTA</span>
+                    </div>
+                    <a href="https://github.com/yoda-jm/mock-my-mta" target="_blank" title="GitHub" class="github-link">
+                        <i class="bi bi-github"></i>
+                    </a>
+                </div>
             </div>
-            <ul class="mailboxes">
-                <li id="allEmails" data-testid="all-emails-link">All</li>
-                <li data-bs-toggle="collapse" data-bs-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList" data-testid="mailbox-toggle">
-                    Mailbox
-                    <i class="bi bi-chevron-right icon"></i>
-                </li>
-                <ul class="collapse" id="mailboxList">
-                    <!-- Dynamic mailbox entries go here -->
+            <div class="sidebar-nav">
+                <ul class="mailboxes">
+                    <li id="allEmails" data-testid="all-emails-link">
+                        <span><i class="bi bi-inbox me-2"></i>All Emails</span>
+                    </li>
+                    <li data-bs-toggle="collapse" data-bs-target="#mailboxList" aria-expanded="false" aria-controls="mailboxList" data-testid="mailbox-toggle">
+                        <span><i class="bi bi-folder me-2"></i>Mailboxes</span>
+                        <i class="bi bi-chevron-right icon"></i>
+                    </li>
+                    <ul class="collapse" id="mailboxList">
+                        <!-- Dynamic mailbox entries go here -->
+                    </ul>
                 </ul>
-            </ul>
-            <!-- delete all messages button (centered) -->
-            <div class="d-flex justify-content-center">
-                <button id="deleteAll" class="btn btn-outline-danger mt-3" data-testid="delete-all-button">Delete All Messages</button>
+            </div>
+            <div class="sidebar-footer">
+                <button id="deleteAll" class="btn btn-outline-danger btn-sm" data-testid="delete-all-button">
+                    <i class="bi bi-trash me-1"></i>Delete All
+                </button>
+                <button class="theme-toggle" id="theme-toggle" data-testid="theme-toggle" title="Toggle dark mode">
+                    <i class="bi bi-moon-fill"></i>
+                    <span class="theme-toggle-label">Dark mode</span>
+                </button>
             </div>
         </div>
         <div class="right-pane">
@@ -132,18 +149,18 @@
 
     <!-- Syntax Help Modal -->
     <div class="modal fade" id="syntaxHelpModal" tabindex="-1" aria-labelledby="syntaxHelpModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="syntaxHelpModalLabel">Filter Syntax Help</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" data-testid="syntax-help-modal-close-button"></button>
           </div>
-          <div class="modal-body">
-            <table class="table table-striped">
+          <div class="modal-body p-0">
+            <table class="table table-hover syntax-help-table mb-0">
               <thead>
                 <tr>
-                  <th>Command</th>
-                  <th>Syntax</th>
+                  <th style="width:120px;">Command</th>
+                  <th style="width:200px;">Syntax</th>
                   <th>Description</th>
                 </tr>
               </thead>

@@ -4,6 +4,35 @@ $(function () {
     let lastKnownEmailCount = null;
     let pollingInterval = null;
 
+    // ── Dark mode ──────────────────────────────────────────────────────
+    function initTheme() {
+        const saved = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        applyTheme(theme);
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        const icon = $('#theme-toggle i');
+        const label = $('#theme-toggle .theme-toggle-label');
+        if (theme === 'dark') {
+            icon.removeClass('bi-moon-fill').addClass('bi-sun-fill');
+            label.text('Light mode');
+        } else {
+            icon.removeClass('bi-sun-fill').addClass('bi-moon-fill');
+            label.text('Dark mode');
+        }
+    }
+
+    $('#theme-toggle').click(function () {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    initTheme();
+
     const searchInput = $('.search-box input[type="text"]');
     const suggestionDisplay = $('#suggestion-display');
 
@@ -338,7 +367,7 @@ $(function () {
     });
 
     $('#deleteAll').click(function () {
-        // Delete all emails
+        if (!confirm('Delete ALL emails? This cannot be undone.')) return;
         console.log('Deleting all emails');
         $.ajax({
             url: '/api/emails/',

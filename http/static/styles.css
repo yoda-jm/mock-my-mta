@@ -1,204 +1,518 @@
+/* ── Theme variables ────────────────────────────────────────────────── */
+:root {
+    --bg-app: #f5f6fa;
+    --bg-sidebar: #ffffff;
+    --bg-main: #ffffff;
+    --bg-surface: #f8f9fa;
+    --bg-hover: #e9ecef;
+    --bg-active: #e3f2fd;
+    --border: #dee2e6;
+    --border-light: #eee;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --text-muted: #adb5bd;
+    --accent: #0d6efd;
+    --accent-light: #e7f1ff;
+    --danger: #dc3545;
+    --success: #198754;
+    --warning: #ffc107;
+    --info: #0dcaf0;
+    --icon: #6c757d;
+    --shadow: rgba(0, 0, 0, 0.06);
+    --shadow-lg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+    --bg-app: #1a1d23;
+    --bg-sidebar: #21252b;
+    --bg-main: #282c34;
+    --bg-surface: #2c313a;
+    --bg-hover: #3a4049;
+    --bg-active: #1e3a5f;
+    --border: #3e4451;
+    --border-light: #353a42;
+    --text-primary: #e4e6ea;
+    --text-secondary: #abb2bf;
+    --text-muted: #6b7589;
+    --accent: #5c9cff;
+    --accent-light: #1e3a5f;
+    --danger: #e06c75;
+    --success: #98c379;
+    --warning: #e5c07b;
+    --info: #56b6c2;
+    --icon: #848d9c;
+    --shadow: rgba(0, 0, 0, 0.2);
+    --shadow-lg: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────── */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-app);
+    color: var(--text-primary);
+    margin: 0;
+}
+
 .email-app {
     display: flex;
     height: 100vh;
+    background: var(--bg-app);
 }
 
+/* ── Sidebar ────────────────────────────────────────────────────────── */
 .left-pane {
     width: 250px;
-    border-right: 1px solid #ccc;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
     overflow-y: auto;
-    padding-right: 0px !important;
-}
-
-/* Styles for the logo area */
-.left-pane .mb-3 {
-    margin-bottom: 1.5rem !important;
-}
-
-.right-pane {
-    width: calc(100vw - 250px);
-    flex: 1;
     display: flex;
     flex-direction: column;
+    padding: 0 !important;
+}
+
+.sidebar-header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+.sidebar-brand-icon {
+    font-size: 1.6em;
+    color: var(--accent);
+}
+
+.sidebar-brand-text {
+    font-weight: 700;
+    font-size: 1.1em;
+    letter-spacing: -0.3px;
+}
+
+.github-link {
+    color: var(--text-muted);
+    font-size: 1.2em;
+    transition: color 0.15s;
+}
+
+.github-link:hover {
+    color: var(--text-primary);
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 8px 0;
 }
 
 .mailboxes {
     list-style: none;
     padding: 0;
-    padding-top: 10px; /* Add padding to the top of the mailbox list */
+    margin: 0;
 }
 
-.mailboxes li {
+.mailboxes > li {
     cursor: pointer;
-    padding: 8px 16px;
+    padding: 10px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    color: var(--text-primary);
+    font-size: 0.93em;
+    transition: background 0.15s;
+    border-radius: 0;
 }
 
-.mailboxes li:hover {
-    background-color: #f0f0f0;
+.mailboxes > li:hover {
+    background: var(--bg-hover);
 }
 
-.email-list {
-    width: 100%;
+.mailboxes > li .icon {
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+#mailboxList {
+    padding-left: 0;
+}
+
+.list-item {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    padding: 8px 16px 8px 28px;
+    font-size: 0.87em;
+    color: var(--text-secondary);
+    transition: background 0.15s;
+}
+
+.list-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-footer .btn {
+    font-size: 0.85em;
+}
+
+/* ── Right pane ─────────────────────────────────────────────────────── */
+.right-pane {
     flex: 1;
-    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-main);
+    min-width: 0;
+}
+
+/* ── Search ──────────────────────────────────────────────────────────── */
+.search-box {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-main);
+    border-bottom: 1px solid var(--border);
+}
+
+.search-input-container {
+    position: relative;
+    flex-grow: 1;
+}
+
+.search-box .search-input-container input.form-control {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    position: relative;
+    z-index: 2;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.93em;
+}
+
+.search-box .search-input-container input.form-control:focus {
+    background-color: var(--bg-main);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.search-box .icon {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 1.1em;
+    padding: 4px;
+    transition: color 0.15s;
+}
+
+.search-box .icon:hover {
+    color: var(--accent);
+}
+
+#suggestion-display {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    font-family: inherit;
+    font-size: 0.93em;
+    color: var(--text-muted);
+    padding: 8px 14px;
+    line-height: 1.5;
+    pointer-events: none;
+    z-index: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+}
+
+#show-syntax-help {
+    cursor: pointer;
+    font-size: 1.1em;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────── */
+.toolbar {
+    padding: 6px 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.87em;
+    color: var(--text-secondary);
+}
+
+.toolbar .btn {
+    color: var(--text-secondary);
+    padding: 4px 8px;
+}
+
+.toolbar .btn:hover {
+    color: var(--accent);
+}
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ── Email list ──────────────────────────────────────────────────────── */
+.email-list {
+    flex: 1;
     overflow-y: auto;
 }
 
 .email-table {
-    table-layout: fixed; /* Changed from auto to fixed */
-    width: 100%; /* Added width 100% */
+    table-layout: fixed;
+    width: 100%;
     border-collapse: collapse;
 }
 
-/* Define column widths for the email table */
-.email-table th.checkbox-col, .email-table td.checkbox-col { width: 30px; text-align: center; }
+.email-table thead {
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    z-index: 5;
+}
+
+.email-table th {
+    padding: 6px 10px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+
+.email-table th.checkbox-col, .email-table td.checkbox-col { width: 36px; text-align: center; }
 .email-table th.from-col, .email-table td.from-col { width: 18%; }
-.email-table th.preview-col, .email-table td.preview-col { width: 48%; }
-.email-table th.attachment-col, .email-table td.attachment-col { width: 5%; text-align: center; }
+.email-table th.preview-col, .email-table td.preview-col { width: 46%; }
+.email-table th.attachment-col, .email-table td.attachment-col { width: 36px; text-align: center; }
 .email-table th.date-col, .email-table td.date-col { width: 14%; }
 .email-table th.actions-col, .email-table td.actions-col { width: 10%; text-align: center; }
 
 .email-item {
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-light);
     cursor: pointer;
+    transition: background 0.12s;
 }
 
-.email-item i.bi {
-    margin-right: 10px;
+.email-item:hover {
+    background: var(--bg-hover);
+}
+
+.email-item td {
+    padding: 5px 10px;
+    font-size: 0.87em;
+    color: var(--text-primary);
+    vertical-align: middle;
+    line-height: 1.3;
 }
 
 .email-item td.preview {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* width: 1%; Removed as column widths are now handled by .preview-col */
+}
+
+.email-item td.preview strong {
+    color: var(--text-primary);
+}
+
+.email-item td.preview span {
+    color: var(--text-secondary);
 }
 
 .email-item td.sender {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 0; /* forces td to respect table-layout:fixed width */
+    max-width: 0;
+    font-weight: 500;
 }
 
 .email-item td.date {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-secondary);
+    font-size: 0.85em;
 }
 
-.search-box { /* Separated from .pagination-nav for individual padding */
-    padding: 16px; /* Reduced padding */
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.email-item i.bi {
+    margin-right: 6px;
+    color: var(--icon);
+    font-size: 0.95em;
+    transition: color 0.15s;
 }
 
-.toolbar { /* Added styles for toolbar */
-    padding-top: 8px;
-    padding-bottom: 8px;
-    /* px-3 for horizontal padding is handled by Bootstrap class in HTML */
+.email-item i.bi:hover {
+    color: var(--accent);
 }
 
-.pagination-nav { /* Kept original padding for pagination-nav */
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+.email-item i.bi-trash:hover {
+    color: var(--danger);
 }
 
+.email-item .form-check-input {
+    cursor: pointer;
+}
+
+/* ── Email view ──────────────────────────────────────────────────────── */
 .email-view {
     display: none;
-    padding: 20px;
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
 }
 
-/* Ensure icons in the email view header are vertically centered */
 .email-view .d-flex {
     align-items: center;
 }
 
-.email-header {
-    border-bottom: 1px solid #ccc;
+.email-view-toolbar {
     margin-bottom: 20px;
-    padding-bottom: 20px; /* Added padding-bottom */
+}
+
+.email-view-toolbar .icon {
+    font-size: 1.2em;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+
+.email-view-toolbar .icon:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.email-header {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.email-header p {
+    margin: 4px 0;
+    font-size: 0.9em;
+    color: var(--text-primary);
+}
+
+.email-header p strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+    display: inline-block;
+    width: 70px;
 }
 
 .email-attachments {
-    border-bottom: 1px solid #ccc;
-    margin-bottom: 20px;
-    padding-bottom: 20px; /* Added padding-bottom */
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    margin-bottom: 16px;
+    font-size: 0.9em;
 }
 
+/* ── Body tabs ───────────────────────────────────────────────────────── */
 .email-body-tabs {
     margin-bottom: 0;
+    border-color: var(--border);
 }
 
 .email-body-tabs .nav-link {
     cursor: pointer;
-    color: #495057;
-    font-size: 0.9em;
-    padding: 6px 14px;
+    color: var(--text-secondary);
+    font-size: 0.87em;
+    padding: 8px 14px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.email-body-tabs .nav-link:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
 }
 
 .email-body-tabs .nav-link.active {
     font-weight: 600;
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: transparent;
 }
 
 .email-body-tabs .nav-link .bi {
-    font-size: 0.8em;
+    font-size: 0.85em;
     margin-right: 4px;
 }
 
 .email-tab-toolbar {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    padding: 8px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
     border-top: none;
-    border-radius: 0 0 4px 4px;
+    border-radius: 0 0 6px 6px;
     margin-bottom: 12px;
+    font-size: 0.87em;
 }
 
 .email-tab-content {
-    padding-top: 12px;
+    padding-top: 8px;
 }
 
-.email-content {
-    /* email body */
-}
-
+/* ── Raw headers & MIME tree ─────────────────────────────────────────── */
 .raw-headers-content {
     max-height: 500px;
     overflow: auto;
-    background: #f8f9fa;
+    background: var(--bg-surface);
+    color: var(--text-primary);
     padding: 16px;
-    border-radius: 4px;
+    border-radius: 6px;
     font-size: 0.85em;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border);
     margin: 0;
     white-space: pre-wrap;
     word-break: break-all;
+    font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
 }
 
 .mime-tree-content {
     max-height: 500px;
     overflow: auto;
-    background: #f8f9fa;
+    background: var(--bg-surface);
     padding: 16px;
-    border-radius: 4px;
-    font-size: 0.85em;
-    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.87em;
+    border: 1px solid var(--border);
 }
 
 .mime-node {
     padding: 4px 0;
-    border-left: 2px solid #dee2e6;
-    padding-left: 12px;
-    margin-left: 4px;
+    border-left: 2px solid var(--border);
+    padding-left: 14px;
+    margin-left: 6px;
 }
 
 .mime-node:first-child {
@@ -212,154 +526,334 @@
     align-items: center;
     gap: 8px;
     padding: 3px 0;
+    flex-wrap: wrap;
 }
 
 .mime-node-type {
     font-weight: 600;
-    color: #0d6efd;
-    font-family: monospace;
+    color: var(--accent);
+    font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    font-size: 0.92em;
 }
 
 .mime-node-details {
-    color: #6c757d;
-    font-size: 0.9em;
+    color: var(--text-muted);
+    font-size: 0.88em;
 }
 
 .mime-node-actions a {
-    font-size: 0.8em;
+    font-size: 0.82em;
     margin-left: 6px;
     text-decoration: none;
+    color: var(--accent);
 }
 
 .mime-node-actions a:hover {
     text-decoration: underline;
 }
 
-.list-item {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-    padding: 5px;
-    border-bottom: 1px solid #ccc;
-}
-
-.input-group-text {
-    border: none; /* Removes border */
-    background: transparent; /* Makes background transparent */
-}
-
+/* ── Popups ──────────────────────────────────────────────────────────── */
 .popup-container {
-    z-index: 5000; /* Ensure it appears above other elements */
+    z-index: 5000;
 }
 
 .popup-message {
     margin-top: 10px;
-    border-radius: 5px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px var(--shadow-lg);
     color: white;
-    padding: 10px;
-    min-width: 250px;
+    padding: 12px 16px;
+    min-width: 280px;
+    font-size: 0.9em;
 }
 
-.popup-message .btn-close {
-    color: white;
+.popup-message .btn-close { color: white; }
+.popup-message.info    { background-color: var(--info); color: #000; }
+.popup-message.success { background-color: var(--success); }
+.popup-message.warning { background-color: var(--warning); color: #000; }
+.popup-message.error   { background-color: var(--danger); }
+
+/* ── Input/form overrides for dark mode ──────────────────────────────── */
+.form-control, .form-select {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    border-color: var(--border);
 }
 
-.popup-message.info {
-    background-color: #17a2b8;
+.form-control:focus, .form-select:focus {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    border-color: var(--accent);
 }
 
-.popup-message.success {
-    background-color: #28a745;
+.form-check-input {
+    background-color: var(--bg-surface);
+    border-color: var(--border);
 }
 
-.popup-message.warning {
-    background-color: #ffc107;
-    color: black;
+.modal-content {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    border-color: var(--border);
 }
 
-.popup-message.error {
-    background-color: #dc3545;
+.modal-header, .modal-footer {
+    border-color: var(--border);
 }
 
-#show-syntax-help {
+.modal-header .modal-title {
+    font-weight: 600;
+}
+
+.table {
+    color: var(--text-primary);
+    --bs-table-bg: var(--bg-main);
+    --bs-table-color: var(--text-primary);
+    --bs-table-striped-bg: var(--bg-surface);
+    --bs-table-striped-color: var(--text-primary);
+    --bs-table-hover-bg: var(--bg-hover);
+    --bs-table-hover-color: var(--text-primary);
+    --bs-table-border-color: var(--border);
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.87em;
+    color: var(--text-secondary);
+}
+
+.table td {
+    font-size: 0.9em;
+    vertical-align: middle;
+}
+
+.input-group-text {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+/* ── Dark mode toggle ────────────────────────────────────────────────── */
+.theme-toggle {
     cursor: pointer;
-    margin-left: 5px; /* Already added ms-2 (margin start 2) in HTML, this will be additional */
-    font-size: 1.2rem; /* Adjust as needed */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.15s;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    width: 100%;
+    justify-content: center;
 }
 
-/*
-Note: For the "Delete All Messages" button:
-- Centering: Apply 'text-align: center;' to its parent container in the HTML,
-  or wrap the button in a div with 'd-flex justify-content-center' classes.
-- Styling: To change the button style (e.g., to btn-outline-danger),
-  update the class directly in the HTML markup.
-*/
+.theme-toggle:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--text-muted);
+}
 
-/* Responsive adjustments for smaller screens */
+/* ── Dark mode overrides for Bootstrap components ────────────────────── */
+[data-theme="dark"] .btn-outline-danger {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+[data-theme="dark"] .btn-outline-danger:hover {
+    background: var(--danger);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-outline-primary {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+[data-theme="dark"] .form-label,
+[data-theme="dark"] .form-check-label {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .form-control:disabled,
+[data-theme="dark"] .form-control[readonly] {
+    background-color: var(--bg-hover);
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+[data-theme="dark"] .badge.bg-secondary {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .badge.bg-primary {
+    background-color: var(--accent) !important;
+}
+
+/* ── Syntax help table ───────────────────────────────────────────────── */
+.syntax-help-table {
+    font-size: 0.9em;
+}
+
+.syntax-help-table thead th {
+    background: var(--bg-surface);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 2px solid var(--border);
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+    padding: 10px 16px;
+}
+
+.syntax-help-table td {
+    padding: 10px 16px;
+    vertical-align: top;
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+.syntax-help-table td:first-child {
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    font-size: 0.92em;
+}
+
+.syntax-help-table td:nth-child(2) {
+    font-family: 'SF Mono', Menlo, Monaco, Consolas, monospace;
+    font-size: 0.9em;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.syntax-help-table td:nth-child(3) {
+    color: var(--text-secondary);
+}
+
+/* ── Sidebar button fixes ────────────────────────────────────────────── */
+.sidebar-footer .btn-outline-danger {
+    width: 100%;
+    font-size: 0.85em;
+    padding: 6px 12px;
+}
+
+[data-theme="dark"] .sidebar-footer .btn-outline-danger {
+    color: var(--danger);
+    border-color: #5a3035;
+    background: #35252a;
+}
+
+[data-theme="dark"] .sidebar-footer .btn-outline-danger:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
+/* ── Unified icon styling ─────────────────────────────────────────────── */
+.email-view .icon {
+    color: var(--text-secondary);
+    font-size: 1.15em;
+    transition: color 0.15s;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.email-view .icon:hover {
+    color: var(--accent);
+}
+
+.search-box .icon {
+    color: var(--text-secondary);
+}
+
+.search-box .icon:hover {
+    color: var(--accent);
+}
+
+.toolbar .btn {
+    color: var(--text-secondary);
+}
+
+.toolbar .btn:hover {
+    color: var(--accent);
+}
+
+/* ── Attachment links ────────────────────────────────────────────────── */
+.email-attachments a {
+    color: var(--accent);
+}
+
+.email-attachments a:hover {
+    color: var(--accent);
+    filter: brightness(1.2);
+}
+
+/* ── MIME tree badge overrides ───────────────────────────────────────── */
+/* Light mode: tinted pastel backgrounds with dark text */
+.mime-node-header .badge.bg-info {
+    background-color: #d1ecf1 !important;
+    color: #0c5460;
+    font-weight: 500;
+}
+
+.mime-node-header .badge.bg-warning {
+    background-color: #fff3cd !important;
+    color: #664d03;
+    font-weight: 500;
+}
+
+.mime-node-header .badge.bg-secondary {
+    background-color: #e9ecef !important;
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Dark mode: darker tinted backgrounds with bright text */
+[data-theme="dark"] .mime-node-header .badge.bg-info {
+    background-color: #153338 !important;
+    color: #7ee0ed;
+}
+
+[data-theme="dark"] .mime-node-header .badge.bg-warning {
+    background-color: #3d3010 !important;
+    color: #f0d680;
+}
+
+[data-theme="dark"] .mime-node-header .badge.bg-secondary {
+    background-color: #3a4049 !important;
+    color: #c8cdd5;
+    border: 1px solid var(--border);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .left-pane {
-        display: none; /* Hidden by default on small screens */
+        display: none;
         position: fixed;
         top: 0;
         left: 0;
-        height: 100vh; /* Full height */
-        z-index: 1000; /* Ensure it's above other content */
-        background-color: #fff; /* White background, adjust as needed */
-        /* width: 250px; from original style */
-        /* border-right: 1px solid #ccc; from original style */
-        /* overflow-y: auto; from original style */
-        transform: translateX(-100%); /* Start off-screen */
-        transition: transform 0.3s ease-in-out; /* Smooth transition for sliding */
-        /* Ensure padding from original style is maintained if needed when visible */
-        /* padding-right: 0px !important; might need to be re-evaluated or padding applied to inner content */
+        height: 100vh;
+        z-index: 1000;
+        background: var(--bg-sidebar);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
     }
 
     .left-pane.is-visible {
-        display: block; /* Or 'flex' if its children need flexbox layout */
-        transform: translateX(0); /* Slide in */
+        display: flex;
+        transform: translateX(0);
     }
 
     .right-pane {
-        width: 100%; /* Take full width when left-pane is hidden or overlaid */
-        /* calc(100vw - 0px) effectively, as left-pane is not in flow or fixed */
+        width: 100%;
     }
-
-    /* Optional: Adjust .email-app if it has specific padding/margins affecting layout */
-    /* .email-app {
-        padding-left: 0; If left-pane was pushing it
-    } */
-}
-
-/* Styles for search input suggestions */
-.search-input-container {
-    position: relative;
-    flex-grow: 1; /* Takes up available space in the flex container .search-box */
-}
-
-.search-box .search-input-container input.form-control {
-    background-color: transparent;
-    position: relative;
-    z-index: 2;
-}
-
-#suggestion-display {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    font-family: inherit; /* Inherit from .form-control */
-    font-size: inherit; /* Inherit from .form-control */
-    color: grey; /* Or #888 */
-    padding: .375rem .75rem; /* Matches Bootstrap 5 .form-control padding */
-    line-height: 1.5; /* Matches Bootstrap 5 .form-control line-height */
-    pointer-events: none;
-    z-index: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: flex; /* To align text vertically, similar to input */
-    align-items: center; /* Vertical alignment */
 }

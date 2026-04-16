@@ -41,8 +41,9 @@ class EmailListSection {
     return this.rows().count();
   }
 
-  /** Delete all emails; waits for the DELETE response. */
+  /** Delete all emails; accepts confirmation dialog and waits for DELETE response. */
   async deleteAll() {
+    this.page.on('dialog', dialog => dialog.accept());
     const deleteResp = this.page.waitForResponse(
       r => r.url().includes('/api/emails') && r.request().method() === 'DELETE'
     );
