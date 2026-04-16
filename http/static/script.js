@@ -1,5 +1,8 @@
 $(function () {
     let currentEmailId = null;
+    let selectedEmailIds = new Set();
+    let lastKnownEmailCount = null;
+    let pollingInterval = null;
 
     const searchInput = $('.search-box input[type="text"]');
     const suggestionDisplay = $('#suggestion-display');
@@ -132,6 +135,7 @@ $(function () {
     setSearchQuery('');
     resetCurrentPage()
     refreshEmailList();
+    startPolling();
 
     $('.bi-arrow-left').click(function () {
         displayEmailList();
@@ -353,6 +357,140 @@ $(function () {
         });
     });
 
+    // ── Polling for new emails ──────────────────────────────────────────
+    function startPolling() {
+        pollingInterval = setInterval(function () {
+            $.ajax({
+                url: '/api/emails/',
+                type: 'GET',
+                data: { page: 1 },
+                success: function (data) {
+                    const currentCount = data.pagination.total_matches;
+                    if (lastKnownEmailCount !== null && currentCount > lastKnownEmailCount) {
+                        const newCount = currentCount - lastKnownEmailCount;
+                        showPopup(newCount + ' new email' + (newCount > 1 ? 's' : '') + ' received', 'info');
+                        refreshEmailList();
+                    }
+                    lastKnownEmailCount = currentCount;
+                }
+            });
+        }, 5000);
+    }
+
+    // ── Bulk operations ──────────────────────────────────────────────────
+    function updateBulkToolbar() {
+        if (selectedEmailIds.size > 0) {
+            $('#bulk-toolbar').css('display', 'flex');
+            $('#bulk-count').text(selectedEmailIds.size + ' selected');
+        } else {
+            $('#bulk-toolbar').css('display', 'none');
+        }
+    }
+
+    function clearSelection() {
+        selectedEmailIds.clear();
+        $('.email-checkbox').prop('checked', false);
+        $('#select-all-checkbox').prop('checked', false);
+        updateBulkToolbar();
+    }
+
+    $(document).on('change', '.email-checkbox', function (e) {
+        e.stopPropagation();
+        const emailId = $(this).data('email-id');
+        if ($(this).is(':checked')) {
+            selectedEmailIds.add(emailId);
+        } else {
+            selectedEmailIds.delete(emailId);
+        }
+        updateBulkToolbar();
+    });
+
+    $(document).on('change', '#select-all-checkbox', function () {
+        const checked = $(this).is(':checked');
+        selectedEmailIds.clear();
+        if (checked) {
+            $('.email-checkbox').each(function () {
+                $(this).prop('checked', true);
+                selectedEmailIds.add($(this).data('email-id'));
+            });
+        } else {
+            $('.email-checkbox').prop('checked', false);
+        }
+        updateBulkToolbar();
+    });
+
+    $('#bulk-delete').click(function () {
+        if (selectedEmailIds.size === 0) return;
+        if (!confirm('Delete ' + selectedEmailIds.size + ' email(s)?')) return;
+        $.ajax({
+            url: '/api/emails/bulk-delete',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ ids: Array.from(selectedEmailIds) }),
+            success: function (data) {
+                showPopup(data.succeeded.length + ' email(s) deleted', 'success');
+                if (data.failed && data.failed.length > 0) {
+                    showPopup(data.failed.length + ' email(s) failed to delete', 'warning');
+                }
+                clearSelection();
+                refreshEmailList();
+            },
+            error: function () {
+                showPopup('Bulk delete failed', 'error');
+            }
+        });
+    });
+
+    $('#bulk-release').click(function () {
+        if (selectedEmailIds.size === 0) return;
+        // Open release modal but wire it up for bulk relay
+        $.ajax({
+            url: '/api/emails/' + Array.from(selectedEmailIds)[0] + '/relay',
+            type: 'GET',
+            success: function (data) {
+                const modal = $('#releaseEmailModal');
+                $('#emailId').val(selectedEmailIds.size + ' emails selected');
+                $('#originalSender').val(data.sender.address);
+                $('#originalReceivers').val(data.recipients.map(r => r.address).join(', '));
+                $('#relayConfig').empty();
+                for (const configName of data.relay_names) {
+                    $('#relayConfig').append($('<option>').val(configName).text(configName));
+                }
+                // Override the release button for bulk
+                $('#releaseEmailButton').off('click').on('click', function () {
+                    const relayName = $('#relayConfig').val();
+                    let sender = $('#senderOverride').is(':checked') ? $('#overrideSender').val() : $('#originalSender').val();
+                    let recipients = $('#receiversOverride').is(':checked')
+                        ? $('#overrideReceivers').val().split(',').map(r => r.trim())
+                        : $('#originalReceivers').val().split(',').map(r => r.trim());
+                    $.ajax({
+                        url: '/api/emails/bulk-relay',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            ids: Array.from(selectedEmailIds),
+                            relay_name: relayName,
+                            sender: sender,
+                            recipients: recipients
+                        }),
+                        success: function (result) {
+                            showPopup(result.succeeded.length + ' email(s) relayed', 'success');
+                            if (result.failed && result.failed.length > 0) {
+                                showPopup(result.failed.length + ' email(s) failed', 'warning');
+                            }
+                            modal.modal('hide');
+                            clearSelection();
+                        },
+                        error: function (jqXHR) {
+                            showPopup(jqXHR.responseText, 'error');
+                        }
+                    });
+                });
+                modal.modal('show');
+            }
+        });
+    });
+
     function refreshMailboxes() {
         // Load mailboxes
         console.log('Refreshing mailboxes');
@@ -393,6 +531,7 @@ $(function () {
     }
 
     function refreshEmailList() {
+        clearSelection();
         const query = $('.search-box input').val();
         const page = $('#page-start').text();
         $.ajax({
@@ -775,7 +914,7 @@ $(function () {
     function generateEmptyEmailListItem() {
         // display a nice message telling the user that there are no emails, centered and colspan on the complete row
         // with a warning icon
-        return $('<tr class="email-item">').append($('<td colspan="4" class="text-center">')
+        return $('<tr class="email-item">').append($('<td colspan="6" class="text-center">')
                 .append($('<i class="bi bi-exclamation-triangle icon">'))
                 .append(' ')
                 .append($('<span>').text('No emails found')));
@@ -803,6 +942,12 @@ $(function () {
     function generateEmailListItem(email) {
         return $('<tr class="email-item">')
             .attr('data-testid', `email-row-${email.id}`)
+            .append($('<td class="checkbox-col">').append(
+                $('<input type="checkbox" class="form-check-input email-checkbox">')
+                    .attr('data-email-id', email.id)
+                    .attr('data-testid', 'email-checkbox-' + email.id)
+                    .click(function(e) { e.stopPropagation(); })
+            ))
             .append($('<td class="sender" data-testid="email-from-' + email.id + '">').append(formatEmailAddress(email.from)))
             .append($('<td class="preview" data-testid="email-preview-' + email.id + '">').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
             .append($('<td data-testid="email-attachment-icon-' + email.id + '">').append(email.has_attachments ? $('<i class="bi bi-paperclip icon">') : ''))
@@ -845,8 +990,8 @@ $(function () {
     }
 
     function updatePagination(pagination) {
-        // Update the pagination
         console.log('Updating pagination');
+        lastKnownEmailCount = pagination.total_matches;
         $('#page-start').text(pagination.current_page);
         $('#page-total').text(pagination.total_pages);
         $('#total-matches').text(pagination.total_matches);

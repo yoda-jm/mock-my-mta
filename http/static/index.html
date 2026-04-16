@@ -44,12 +44,19 @@
                 <i class="bi bi-search ms-2 icon" data-testid="search-submit-button"></i>
             </div>
             <div class="toolbar d-flex justify-content-between align-items-center px-3">
-                <div class="toolbar-left">
-                    <button id="refresh" class="btn" data-testid="refresh-button">
-                        <i class="bi bi-arrow-clockwise ms-2 icon"></i>
+                <div class="toolbar-left d-flex align-items-center gap-1">
+                    <button id="refresh" class="btn btn-sm" data-testid="refresh-button" title="Refresh">
+                        <i class="bi bi-arrow-clockwise"></i>
                     </button>
-                </div>
-                <div class="toolbar-center">
+                    <div id="bulk-toolbar" style="display:none;" class="align-items-center gap-1">
+                        <span id="bulk-count" class="badge bg-primary"></span>
+                        <button id="bulk-delete" class="btn btn-sm btn-outline-danger" data-testid="bulk-delete-button" title="Delete selected">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                        <button id="bulk-release" class="btn btn-sm btn-outline-primary" data-testid="bulk-release-button" title="Release selected">
+                            <i class="bi bi-envelope-arrow-up"></i> Release
+                        </button>
+                    </div>
                 </div>
                 <div class="toolbar-right">
                     <span id="email-range">
@@ -71,6 +78,7 @@
                 <table class="email-table">
                     <thead>
                         <tr>
+                            <th class="checkbox-col"><input type="checkbox" class="form-check-input" id="select-all-checkbox" data-testid="select-all-checkbox" title="Select all"></th>
                             <th class="from-col">From</th>
                             <th class="preview-col">Preview</th>
                             <th class="attachment-col"><!-- has attachment --></th>

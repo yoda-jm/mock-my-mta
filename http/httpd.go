@@ -63,6 +63,8 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	// Emails
 	apiRouter.HandleFunc("/emails/", s.getEmails).Methods("GET")
 	apiRouter.HandleFunc("/emails/", s.deleteEmails).Methods("DELETE")
+	apiRouter.HandleFunc("/emails/bulk-delete", s.bulkDeleteEmails).Methods("POST")
+	apiRouter.HandleFunc("/emails/bulk-relay", s.bulkRelayEmails).Methods("POST")
 	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
@@ -334,12 +336,12 @@ func (s *Server) getBodyVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the body is HTML, replace cid: links
+	// If the body is HTML, sanitize and replace cid: links
 	if version == storage.EmailVersionHtml || version == storage.EmailVersionWatchHtml {
-		// Regex to find src="cid:..." or src='cid:...'
-		// It captures the content of cid (the actual CID) in group 1
+		// Sanitize: remove script tags and event handler attributes
+		body = sanitizeHTML(body)
+		// Replace cid: links with API endpoints
 		cidRegex := regexp.MustCompile(`src=["']cid:([^"']+)["']`)
-		// Replacement pattern uses $1 to refer to the captured group (the CID)
 		replacementPattern := fmt.Sprintf("src=\"/api/emails/%s/cid/$1\"", emailID)
 		body = cidRegex.ReplaceAllString(body, replacementPattern)
 	}
@@ -518,6 +520,76 @@ func (s *Server) deleteEmails(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type BulkDeleteRequest struct {
+	IDs []string `json:"ids"`
+}
+
+type BulkResult struct {
+	Succeeded []string `json:"succeeded"`
+	Failed    []string `json:"failed"`
+}
+
+func (s *Server) bulkDeleteEmails(w http.ResponseWriter, r *http.Request) {
+	var request BulkDeleteRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse request body: %v", err)
+		return
+	}
+
+	result := BulkResult{}
+	for _, id := range request.IDs {
+		if err := s.store.DeleteEmailByID(id); err != nil {
+			result.Failed = append(result.Failed, id)
+		} else {
+			result.Succeeded = append(result.Succeeded, id)
+		}
+	}
+	writeJSONResponse(w, result)
+}
+
+type BulkRelayRequest struct {
+	IDs        []string `json:"ids"`
+	RelayName  string   `json:"relay_name"`
+	Sender     string   `json:"sender"`
+	Recipients []string `json:"recipients"`
+}
+
+func (s *Server) bulkRelayEmails(w http.ResponseWriter, r *http.Request) {
+	var request BulkRelayRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse request body: %v", err)
+		return
+	}
+
+	relayConfig, found := s.relayConfigurations.Get(request.RelayName)
+	if !found {
+		writeErrorResponse(w, http.StatusBadRequest, "relay %q not found", request.RelayName)
+		return
+	}
+
+	result := BulkResult{}
+	for _, id := range request.IDs {
+		rawData, err := s.store.GetBodyVersion(id, storage.EmailVersionRaw)
+		if err != nil {
+			result.Failed = append(result.Failed, id)
+			continue
+		}
+		envelope := smtp.Envelope{
+			Sender:     request.Sender,
+			Recipients: request.Recipients,
+			Data:       []byte(rawData),
+		}
+		if err := smtp.RelayMessage(relayConfig, id, envelope); err != nil {
+			result.Failed = append(result.Failed, id)
+		} else {
+			result.Succeeded = append(result.Succeeded, id)
+		}
+	}
+	writeJSONResponse(w, result)
+}
+
 func (s *Server) getEmails(w http.ResponseWriter, r *http.Request) {
 	// Get the query parameter from the URL
 	query := r.URL.Query().Get("query")
@@ -591,4 +663,14 @@ func parsePageParameters(r *http.Request) (int, int, error) {
 // generateRequestID generates a unique request ID for each incoming request.
 func generateRequestID() string {
 	return uuid.New().String()
+}
+
+// sanitizeHTML removes script tags and event handler attributes from HTML.
+var scriptTagRegex = regexp.MustCompile(`(?i)<script[^>]*>[\s\S]*?</script>`)
+var eventHandlerRegex = regexp.MustCompile(`(?i)\s+on\w+\s*=\s*["'][^"']*["']`)
+
+func sanitizeHTML(html string) string {
+	html = scriptTagRegex.ReplaceAllString(html, "")
+	html = eventHandlerRegex.ReplaceAllString(html, "")
+	return html
 }

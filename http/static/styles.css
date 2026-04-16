@@ -54,10 +54,11 @@
 }
 
 /* Define column widths for the email table */
-.email-table th.from-col, .email-table td.from-col { width: 20%; }
-.email-table th.preview-col, .email-table td.preview-col { width: 50%; } /* Allow more space for preview */
-.email-table th.attachment-col, .email-table td.attachment-col { width: 5%; text-align: center; } /* Small, centered icon */
-.email-table th.date-col, .email-table td.date-col { width: 15%; }
+.email-table th.checkbox-col, .email-table td.checkbox-col { width: 30px; text-align: center; }
+.email-table th.from-col, .email-table td.from-col { width: 18%; }
+.email-table th.preview-col, .email-table td.preview-col { width: 48%; }
+.email-table th.attachment-col, .email-table td.attachment-col { width: 5%; text-align: center; }
+.email-table th.date-col, .email-table td.date-col { width: 14%; }
 .email-table th.actions-col, .email-table td.actions-col { width: 10%; text-align: center; }
 
 .email-item {

@@ -162,7 +162,68 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.emailView.externalImagesToggle).not.toBeChecked();
   });
 
+  // ── Bulk operations ────────────────────────────────────────────────────
+
+  test('Bulk select — checkbox selects emails and shows toolbar', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+
+    // The select-all checkbox should be present
+    const selectAll = inbox.page.locator('[data-testid="select-all-checkbox"]');
+    await expect(selectAll).toBeVisible();
+
+    // Click the first email's checkbox
+    const firstCheckbox = inbox.page.locator('[data-testid^="email-checkbox-"]').first();
+    await firstCheckbox.check();
+
+    // Bulk toolbar should appear
+    const bulkToolbar = inbox.page.locator('#bulk-toolbar');
+    await expect(bulkToolbar).toBeVisible();
+    await expect(inbox.page.locator('#bulk-count')).toContainText('1 selected');
+
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-bulk-select.png');
+
+    // Uncheck — toolbar should hide
+    await firstCheckbox.uncheck();
+    await expect(bulkToolbar).not.toBeVisible({ timeout: 5000 });
+  });
+
+  test('Bulk select-all — selects all visible emails', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+
+    const selectAll = inbox.page.locator('[data-testid="select-all-checkbox"]');
+    await selectAll.check();
+
+    const visibleCount = await inbox.emailList.count();
+    await expect(inbox.page.locator('#bulk-count')).toContainText(visibleCount + ' selected');
+
+    // Deselect all
+    await selectAll.uncheck();
+    await expect(inbox.page.locator('#bulk-toolbar')).toBeHidden();
+  });
+
   // ── Destructive tests (run last — mutate server state) ──────────────────
+
+  test('Bulk delete — removes selected emails', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    const initialTotal = await inbox.emailList.pagination.totalEmails();
+
+    // Select first two emails
+    const checkboxes = inbox.page.locator('[data-testid^="email-checkbox-"]');
+    await checkboxes.nth(0).check();
+    await checkboxes.nth(1).check();
+
+    // Click bulk delete — accept the confirmation dialog
+    inbox.page.on('dialog', dialog => dialog.accept());
+    const resp = inbox.page.waitForResponse(r => r.url().includes('/bulk-delete'));
+    await inbox.page.locator('[data-testid="bulk-delete-button"]').click();
+    await resp;
+
+    // Should have 2 fewer emails
+    await expect(inbox.emailList.pagination.totalMatchesEl)
+      .toHaveText((initialTotal - 2).toString(), { timeout: 5000 });
+
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/interaction-bulk-delete.png');
+  });
 
   test('Delete a Single Email', async () => {
     await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
