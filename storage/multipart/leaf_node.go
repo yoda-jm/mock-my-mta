@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"io"
+	"mime"
 	"mime/quotedprintable"
 	"strings"
+
+	"golang.org/x/text/encoding/ianaindex"
 )
 
 type leafNode struct {
@@ -41,27 +44,59 @@ func (l leafNode) GetDecodedBody() string {
 	bodyBytes := l.GetBody()
 	encoding := l.getContentTransferEncoding()
 
+	// Step 1: decode Content-Transfer-Encoding
+	var decoded []byte
 	switch strings.ToLower(encoding) {
 	case "base64":
-		decoded, err := base64.StdEncoding.DecodeString(string(bodyBytes))
+		d, err := base64.StdEncoding.DecodeString(string(bodyBytes))
 		if err == nil {
-			return string(decoded)
+			decoded = d
+		} else {
+			decoded = bodyBytes
 		}
-		// Fallback to original body if base64 decoding fails
-		return string(bodyBytes)
 	case "quoted-printable":
 		qpr := quotedprintable.NewReader(bytes.NewReader(bodyBytes))
-		decodedBytes, err := io.ReadAll(qpr)
+		d, err := io.ReadAll(qpr)
 		if err == nil {
-			return string(decodedBytes)
+			decoded = d
+		} else {
+			decoded = bodyBytes
 		}
-		// Fallback to original body if QP decoding fails
-		return string(bodyBytes)
 	default:
-		// Includes "7bit", "8bit", binary, or no encoding specified
-		return string(bodyBytes)
+		decoded = bodyBytes
 	}
-	// FIXME: read the charset from the Content-Type header and decode the body
+
+	// Step 2: convert charset to UTF-8
+	charset := l.getCharset()
+	if charset != "" && !isUTF8Charset(charset) {
+		enc, err := ianaindex.IANA.Encoding(charset)
+		if err == nil && enc != nil {
+			utf8Bytes, err := enc.NewDecoder().Bytes(decoded)
+			if err == nil {
+				return string(utf8Bytes)
+			}
+		}
+	}
+
+	return string(decoded)
+}
+
+// getCharset extracts the charset parameter from the Content-Type header.
+func (l leafNode) getCharset() string {
+	ct := getContentType(l.getHeaders())
+	if ct == "" {
+		return ""
+	}
+	_, params, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return ""
+	}
+	return params["charset"]
+}
+
+func isUTF8Charset(charset string) bool {
+	c := strings.ToLower(strings.TrimSpace(charset))
+	return c == "utf-8" || c == "utf8" || c == "us-ascii" || c == "ascii"
 }
 
 func (l leafNode) isPlainText() bool {

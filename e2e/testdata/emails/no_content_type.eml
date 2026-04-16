@@ -1,5 +1,5 @@
-From: plain-sender@example.com
-To: recipient@example.com
+From: plain-sender@edgecase-test.net
+To: recipient@edgecase-test.net
 Subject: Email Without Content-Type Header
 Date: Fri, 05 Jul 2024 10:00:00 +0000
 

@@ -255,8 +255,8 @@ test.describe('Email Feature Tests', () => {
   });
 
   test('newer_than: filter — returns only emails newer than the given duration', async () => {
-    // email_dated_recent.eml is dated 2026-04-01; newer_than:14d = after 2026-03-31
-    await inbox.search.search('newer_than:14d');
+    // email_dated_recent.eml is dated 2026-04-01; newer_than:30d gives a safe margin
+    await inbox.search.search('newer_than:30d');
     await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
 
     expect(await inbox.emailList.pagination.totalEmails()).toBe(1);

@@ -7,6 +7,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/mail"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -85,6 +86,9 @@ func parseMail(headersMap map[string][]string, bodyReader io.Reader) (node, erro
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		// RFC 2822: default to text/plain when Content-Type is absent
+		headers.values["content-type"] = []string{"text/plain; charset=us-ascii"}
 	}
 	if !strings.HasPrefix(mediaType, "multipart/") {
 		// this is a leaf node (no parts)
@@ -278,17 +282,19 @@ func (mp Multipart) GetPreview() string {
 
 	finalPreview := previewText
 	if finalPreview == "" {
-		finalPreview = htmlText
+		finalPreview = stripHTMLTags(htmlText)
 	}
+
+	// remove \r and \n, collapse whitespace
+	finalPreview = strings.ReplaceAll(finalPreview, "\r", "")
+	finalPreview = strings.ReplaceAll(finalPreview, "\n", " ")
+	finalPreview = strings.TrimSpace(finalPreview)
 
 	// limit preview to 100 characters
 	if len(finalPreview) > 100 {
 		finalPreview = finalPreview[:100] + "..."
 	}
-	// remove \r and \n
-	finalPreview = strings.ReplaceAll(finalPreview, "\r", "")
-	finalPreview = strings.ReplaceAll(finalPreview, "\n", " ")
-	return strings.TrimSpace(finalPreview)
+	return finalPreview
 }
 
 func (mp Multipart) GetBody(bodyVersion string) (string, error) {
@@ -473,6 +479,15 @@ func (mp Multipart) GetPartByCID(cid string) (leafNode, bool) {
 	})
 
 	return foundNode, found
+}
+
+var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+
+// stripHTMLTags removes HTML tags and collapses whitespace for plain-text preview.
+func stripHTMLTags(s string) string {
+	s = htmlTagRe.ReplaceAllString(s, " ")
+	// Collapse runs of whitespace into a single space
+	return strings.Join(strings.Fields(s), " ")
 }
 
 func decodeHeader(header string) string {
