@@ -490,6 +490,68 @@ func stripHTMLTags(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
+// GetAllHeaders returns all headers as a map of key to decoded values.
+func (mp Multipart) GetAllHeaders() map[string][]string {
+	result := make(map[string][]string)
+	for key, values := range mp.node.getHeaders().values {
+		decoded := make([]string, len(values))
+		for i, v := range values {
+			decoded[i] = decodeHeader(v)
+		}
+		result[key] = decoded
+	}
+	return result
+}
+
+// MimeTreeNode represents a node in the MIME structure tree.
+type MimeTreeNode struct {
+	ContentType string          `json:"content_type"`
+	Encoding    string          `json:"encoding,omitempty"`
+	Charset     string          `json:"charset,omitempty"`
+	Disposition string          `json:"disposition,omitempty"`
+	Filename    string          `json:"filename,omitempty"`
+	ContentID   string          `json:"content_id,omitempty"`
+	Size        int             `json:"size,omitempty"`
+	Children    []*MimeTreeNode `json:"children,omitempty"`
+}
+
+// GetMimeTree returns a hierarchical representation of the MIME structure.
+func (mp Multipart) GetMimeTree() *MimeTreeNode {
+	return buildMimeTree(mp.node)
+}
+
+func buildMimeTree(n node) *MimeTreeNode {
+	ct := getContentType(n.getHeaders())
+	if ct == "" {
+		ct = "text/plain"
+	}
+
+	treeNode := &MimeTreeNode{
+		ContentType: ct,
+	}
+
+	if leaf, ok := n.(leafNode); ok {
+		treeNode.Encoding = leaf.getContentTransferEncoding()
+		treeNode.Charset = leaf.getCharset()
+		treeNode.ContentID = leaf.GetContentID()
+		treeNode.Size = len(leaf.body)
+		disp := getHeaderValue(leaf, "Content-Disposition")
+		if disp != "" {
+			treeNode.Disposition = disp
+			att := AttachmentNode{leafNode: leaf}
+			treeNode.Filename = att.GetFilename()
+		}
+	}
+
+	if mn, ok := n.(multipartNode); ok {
+		for _, part := range mn.parts {
+			treeNode.Children = append(treeNode.Children, buildMimeTree(part))
+		}
+	}
+
+	return treeNode
+}
+
 func decodeHeader(header string) string {
 	dec := new(mime.WordDecoder)
 	decoded, err := dec.DecodeHeader(header)

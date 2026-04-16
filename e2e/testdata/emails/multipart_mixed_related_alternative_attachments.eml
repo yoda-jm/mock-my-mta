@@ -70,62 +70,68 @@ Message Id: 0eb69c12-ec18-4f6c-ac14-168b2092b477
 --alternative_boundary--
 
 --related_boundary
-Content-Type: image/gif; name="red"
-Content-Description: red.gif
-Content-Disposition: inline; filename="image001.gif";
+Content-Type: image/png; name="red"
+Content-Description: red.png
+Content-Disposition: inline; filename="image001.png";
 Content-ID: <50eef9fb>
 Content-Transfer-Encoding: base64
 
-R0lGODdhIAAgAPAAAPRDNslFJiH5BAEAAAEALAAAAAAgACAAAAIehI+py+0Po5y02ouz3rz7D4bi
-SJbmiabqyrbuC5sFADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMUlEQVR4nO3NQQkA
+AAgEsCtlBPsXMIwlBD+D/ZepfhGxWCwWi8VisVgsFovFYrH4zgJxEln5N1Zy
+agAAAABJRU5ErkJggg==
 
 --related_boundary
-Content-Type: image/gif; name="green"
-Content-Description: green.gif
-Content-Disposition: inline; filename="image002.gif";
+Content-Type: image/png; name="green"
+Content-Description: green.png
+Content-Disposition: inline; filename="image002.png";
 Content-ID: <e338d1eb>
 Content-Transfer-Encoding: base64
 
-R0lGODdhIAAgAPAAAC59MslFJiH5BAEAAAEALAAAAAAgACAAAAIehI+py+0Po5y02ouz3rz7D4bi
-SJbmiabqyrbuC5sFADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMElEQVR4nO3NQQkA
+AAgEsKthLztZ2xKCn8H+S02/iFgsFovFYrFYLBaLxWKxWHxnAfLn9Uxp8vHB
+AAAAAElFTkSuQmCC
 
 --related_boundary
-Content-Type: image/gif; name="blue"
-Content-Description: blue.gif
-Content-Disposition: inline; filename="image003.gif";
+Content-Type: image/png; name="blue"
+Content-Description: blue.png
+Content-Disposition: inline; filename="image003.png";
 Content-ID: <e98e57c2>
 Content-Transfer-Encoding: base64
 
-R0lGODdhIAAgAPAAABVlwMlFJiH5BAEAAAEALAAAAAAgACAAAAIehI+py+0Po5y02ouz3rz7D4bi
-SJbmiabqyrbuC5sFADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMElEQVR4nO3NsQkA
+AAgDsD7gq/6/CD4huASyJ9XzImKxWCwWi8VisVgsFovFYvGdBSSCLohhdIRK
+AAAAAElFTkSuQmCC
 
 --related_boundary--
 
 --mixed_boundary
-Content-Type: image/gif; name="red"
-Content-Description: red.gif
-Content-Disposition: attachment; filename="image004.gif";
+Content-Type: image/png; name="red"
+Content-Description: red.png
+Content-Disposition: attachment; filename="image004.png";
 Content-Transfer-Encoding: base64
 
-R0lGODdhIAAgAPAAAPRDNslFJiH5BAEAAAEALAAAAAAgACAAAAIehI+py+0Po5y02ouz3rz7D4bi
-SJbmiabqyrbuC5sFADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMUlEQVR4nO3NQQkA
+AAgEsCtlBPsXMIwlBD+D/ZepfhGxWCwWi8VisVgsFovFYrH4zgJxEln5N1Zy
+agAAAABJRU5ErkJggg==
 
 --mixed_boundary
-Content-Type: image/gif; name="green"
-Content-Description: green.gif
-Content-Disposition: attachment; filename="image005.gif";
+Content-Type: image/png; name="green"
+Content-Description: green.png
+Content-Disposition: attachment; filename="image005.png";
 Content-Transfer-Encoding: base64
 
-R0lGODdhIAAgAPAAAC59MslFJiH5BAEAAAEALAAAAAAgACAAAAIehI+py+0Po5y02ouz3rz7D4bi
-SJbmiabqyrbuC5sFADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMElEQVR4nO3NQQkA
+AAgEsKthLztZ2xKCn8H+S02/iFgsFovFYrFYLBaLxWKxWHxnAfLn9Uxp8vHB
+AAAAAElFTkSuQmCC
 
 --mixed_boundary
-Content-Type: image/gif; name="blue"
-Content-Description: blue.gif
-Content-Disposition: attachment; filename="image006.gif";
+Content-Type: image/png; name="blue"
+Content-Description: blue.png
+Content-Disposition: attachment; filename="image006.png";
 Content-Transfer-Encoding: base64
 
-R0lGODdhIAAgAPAAABVlwMlFJiH5BAEAAAEALAAAAAAgACAAAAIehI+py+0Po5y02ouz3rz7D4bi
-SJbmiabqyrbuC5sFADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMElEQVR4nO3NsQkA
+AAgDsD7gq/6/CD4huASyJ9XzImKxWCwWi8VisVgsFovFYvGdBSSCLohhdIRK
+AAAAAElFTkSuQmCC
 
 --mixed_boundary--

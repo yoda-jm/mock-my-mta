@@ -573,6 +573,91 @@ func TestMultipartAlternative(t *testing.T) {
 		}
 	})
 
+	// --- New feature tests ---
+
+	t.Run("GetAllHeaders_ReturnsDecodedHeaders", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "alternative_plain_html.eml"))
+
+		headers := mp.GetAllHeaders()
+		if len(headers) == 0 {
+			t.Fatal("GetAllHeaders() returned empty map")
+		}
+
+		// Check that common headers are present (keys are lowercase)
+		if _, ok := headers["from"]; !ok {
+			t.Error("GetAllHeaders() missing 'from' header")
+		}
+		if _, ok := headers["to"]; !ok {
+			t.Error("GetAllHeaders() missing 'to' header")
+		}
+		if _, ok := headers["subject"]; !ok {
+			t.Error("GetAllHeaders() missing 'subject' header")
+		}
+		if _, ok := headers["content-type"]; !ok {
+			t.Error("GetAllHeaders() missing 'content-type' header")
+		}
+	})
+
+	t.Run("GetMimeTree_SimpleEmail", func(t *testing.T) {
+		email, err := mail.ReadMessage(strings.NewReader(simpleEmail))
+		if err != nil {
+			t.Fatal(err)
+		}
+		mp, err := New(email)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		tree := mp.GetMimeTree()
+		if tree == nil {
+			t.Fatal("GetMimeTree() returned nil")
+		}
+		// Simple email is a leaf — should have text/plain content type, no children
+		if !strings.HasPrefix(tree.ContentType, "text/plain") {
+			t.Errorf("GetMimeTree().ContentType = %q, want prefix 'text/plain'", tree.ContentType)
+		}
+		if len(tree.Children) > 0 {
+			t.Errorf("GetMimeTree() simple email should have no children, got %d", len(tree.Children))
+		}
+		if tree.Size == 0 {
+			t.Error("GetMimeTree().Size should be > 0 for a leaf node")
+		}
+	})
+
+	t.Run("GetMimeTree_MultipartEmail", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "mixed_alternative.eml"))
+
+		tree := mp.GetMimeTree()
+		if tree == nil {
+			t.Fatal("GetMimeTree() returned nil")
+		}
+		// mixed_alternative.eml: multipart/mixed > [attachment.txt, multipart/alternative > [plain, html]]
+		if !strings.HasPrefix(tree.ContentType, "multipart/mixed") {
+			t.Errorf("GetMimeTree().ContentType = %q, want 'multipart/mixed'", tree.ContentType)
+		}
+		if len(tree.Children) != 2 {
+			t.Fatalf("GetMimeTree() should have 2 children, got %d", len(tree.Children))
+		}
+
+		// First child is the attachment
+		att := tree.Children[0]
+		if att.Filename != "attachment.txt" {
+			t.Errorf("First child Filename = %q, want 'attachment.txt'", att.Filename)
+		}
+		if att.Disposition == "" {
+			t.Error("Attachment node should have a disposition")
+		}
+
+		// Second child is multipart/alternative with plain + html
+		alt := tree.Children[1]
+		if !strings.HasPrefix(alt.ContentType, "multipart/alternative") {
+			t.Errorf("Second child ContentType = %q, want 'multipart/alternative'", alt.ContentType)
+		}
+		if len(alt.Children) != 2 {
+			t.Errorf("Alternative node should have 2 children (plain + html), got %d", len(alt.Children))
+		}
+	})
+
 	t.Run("AlternativeNestedMixed", func(t *testing.T) {
 		mp := loadTestEmail(t, filepath.Join(basePath, "alternative_nested_mixed.eml"))
 		// Preview should be from the plain text part of the alternative

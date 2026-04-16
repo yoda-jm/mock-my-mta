@@ -21,6 +21,8 @@ Content-Transfer-Encoding: base64
 Content-ID: <image1@example.com>
 Content-Disposition: inline; filename="image.png"
 
-iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMUlEQVR4nO3NQQkA
+AAgEsCtlBPsXMIwlBD+D/ZepfhGxWCwWi8VisVgsFovFYrH4zgJxEln5N1Zy
+agAAAABJRU5ErkJggg==
 
 --boundary_related--

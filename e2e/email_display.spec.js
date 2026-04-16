@@ -295,4 +295,73 @@ test.describe('Email Display Tests', () => {
 
     await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/display-iso8859-charset.png');
   });
+
+  // ── New features ──────────────────────────────────────────────────────
+
+  test('Download .eml button returns a valid email file', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    // Intercept the download request to verify it returns correctly
+    const downloadButton = inbox.page.locator('[data-testid="email-view-download-button"]');
+    await expect(downloadButton).toBeVisible();
+
+    const [download] = await Promise.all([
+      inbox.page.waitForEvent('download'),
+      downloadButton.click(),
+    ]);
+
+    // Verify the download has an .eml filename
+    expect(download.suggestedFilename()).toMatch(/\.eml$/);
+
+    await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/display-download-eml.png');
+  });
+
+  test('Raw headers tab shows all email headers', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    // Click the "headers" tab
+    const headersTab = inbox.page.locator('[data-testid="email-body-version-tab-headers"]');
+    await expect(headersTab).toBeVisible();
+
+    const resp = inbox.page.waitForResponse(r => r.url().includes('/headers'));
+    await headersTab.click();
+    await resp;
+
+    // The raw headers panel should be visible with header content
+    const headersPanel = inbox.page.locator('[data-testid="email-raw-headers"]');
+    await expect(headersPanel).toBeVisible();
+    const headersText = await headersPanel.textContent();
+    expect(headersText).toContain('from:');
+    expect(headersText).toContain('subject:');
+
+    await screenshotLocator(headersPanel, test.info(), 'screenshots/display-raw-headers.png');
+  });
+
+  test('MIME tree tab shows structure', async () => {
+    // Use a multipart email for a more interesting tree
+    await inbox.search.search('subject:Important information');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    // Click the "mime-tree" tab
+    const mimeTab = inbox.page.locator('[data-testid="email-body-version-tab-mime-tree"]');
+    await expect(mimeTab).toBeVisible();
+
+    const resp = inbox.page.waitForResponse(r => r.url().includes('/mime-tree'));
+    await mimeTab.click();
+    await resp;
+
+    // The MIME tree panel should be visible with content type info
+    const treePanel = inbox.page.locator('[data-testid="email-mime-tree"]');
+    await expect(treePanel).toBeVisible();
+    const treeText = await treePanel.textContent();
+    expect(treeText).toContain('multipart/');
+
+    await screenshotLocator(treePanel, test.info(), 'screenshots/display-mime-tree.png');
+  });
 });

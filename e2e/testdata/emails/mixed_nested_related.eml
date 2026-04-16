@@ -27,12 +27,14 @@ Content-Transfer-Encoding: quoted-printable
 </body></html>
 
 --boundary_related_nested
-Content-Type: image/gif
+Content-Type: image/png
 Content-Transfer-Encoding: base64
 Content-ID: <image.nested@example.com>
-Content-Disposition: inline; filename="nested_image.gif"
+Content-Disposition: inline; filename="nested_image.png"
 
-R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=
+iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAIAAAADnC86AAAAMElEQVR4nO3NQQkA
+AAgEsKthLztZ2xKCn8H+S02/iFgsFovFYrFYLBaLxWKxWHxnAfLn9Uxp8vHB
+AAAAAElFTkSuQmCC
 
 --boundary_related_nested--
 
