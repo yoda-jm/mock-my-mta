@@ -38,6 +38,12 @@ To install and run this project, follow these steps:
 4. Connect your browser to http://localhost:8080
 5. Configure your service sending emails to use localhost on port 8025
 
+## Architecture
+
+- [Storage Layer Design](docs/storage-layer-design.md) — multi-layer,
+  scope-routed cascade architecture for memory caching, SQLite indexing,
+  and filesystem persistence.
+
 ## Launching tests
 
 To generate and view a test coverage report:
