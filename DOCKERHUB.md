@@ -18,7 +18,7 @@ MockMyMTA captures all emails sent to it via SMTP and provides a web UI and REST
 ## Quick Start
 
 ```bash
-docker run -d -p 8025:8025 -p 1025:1025 yodajm/mock-my-mta
+docker run -d -p 8025:8025 -p 1025:1025 vincentleligeour/mock-my-mta
 ```
 
 - **Web UI:** http://localhost:8025
@@ -64,7 +64,7 @@ curl "http://localhost:8025/api/emails/wait?query=subject:Welcome&timeout=30s"
 ```yaml
 services:
   mock-smtp:
-    image: yodajm/mock-my-mta
+    image: vincentleligeour/mock-my-mta
     ports:
       - "8025:8025"
       - "1025:1025"
@@ -82,7 +82,7 @@ volumes:
 ```bash
 docker run -d -p 8025:8025 -p 1025:1025 \
   -v ./config.json:/app/config.json \
-  yodajm/mock-my-mta ./server --config config.json
+  vincentleligeour/mock-my-mta ./server --config config.json
 ```
 
 ## Ports

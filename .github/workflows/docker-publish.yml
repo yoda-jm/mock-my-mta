@@ -23,7 +23,7 @@ jobs:
       output: image
       push: true
       platforms: linux/amd64,linux/arm64
-      meta-images: yodajm/mock-my-mta
+      meta-images: vincentleligeour/mock-my-mta
       meta-tags: |
         type=ref,event=branch
         type=semver,pattern={{version}}

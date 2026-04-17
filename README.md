@@ -2,7 +2,7 @@
 
 [![Build](https://github.com/yoda-jm/mock-my-mta/actions/workflows/build.yml/badge.svg)](https://github.com/yoda-jm/mock-my-mta/actions/workflows/build.yml)
 [![E2E Tests](https://github.com/yoda-jm/mock-my-mta/actions/workflows/e2e.yml/badge.svg)](https://github.com/yoda-jm/mock-my-mta/actions/workflows/e2e.yml)
-[![Docker](https://img.shields.io/docker/pulls/yodajm/mock-my-mta?logo=docker&label=Docker%20Hub)](https://hub.docker.com/r/yodajm/mock-my-mta)
+[![Docker](https://img.shields.io/docker/pulls/vincentleligeour/mock-my-mta?logo=docker&label=Docker%20Hub)](https://hub.docker.com/r/vincentleligeour/mock-my-mta)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A lightweight, local SMTP mock server for capturing and inspecting emails during development and testing — without sending anything to the outside world.
