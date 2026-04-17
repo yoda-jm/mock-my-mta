@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
@@ -33,7 +34,8 @@ type Server struct {
 
 	relayConfigurations smtp.RelayConfigurations
 
-	store storage.Storage
+	store    storage.Storage
+	readEmails sync.Map // tracks which email IDs have been read
 }
 
 // embed static directory
@@ -86,9 +88,11 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/emails/{email_id}/cid/{cid}", s.getPartByCID).Methods("GET")
 	// Filter suggestions
 	apiRouter.HandleFunc("/filters/suggestions", getFilterSuggestions).Methods("GET")
-	// Health and stats
+	// Health, stats, and settings
 	apiRouter.HandleFunc("/health", s.getHealth).Methods("GET")
 	apiRouter.HandleFunc("/stats", s.getStats).Methods("GET")
+	apiRouter.HandleFunc("/settings", handleGetSettings).Methods("GET")
+	apiRouter.HandleFunc("/settings", handlePutSettings).Methods("PUT")
 	// WebSocket for real-time notifications
 	apiRouter.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r)
@@ -236,7 +240,10 @@ func (s *Server) getEmailByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Write the response
+	// Mark as read
+	s.readEmails.Store(emailID, true)
+	email.IsRead = true
+
 	writeJSONResponse(w, email)
 }
 
@@ -630,6 +637,12 @@ func (s *Server) getEmails(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "cannot search emails: %v", err)
 		return
+	}
+	// Inject read status
+	for i := range emailHeaders {
+		if _, ok := s.readEmails.Load(emailHeaders[i].ID); ok {
+			emailHeaders[i].IsRead = true
+		}
 	}
 	isFirstPage := page == 1
 	isLastPage := (page * pageSize) >= totalMatches

@@ -3,6 +3,7 @@ package smtp
 import (
 	"bytes"
 	"crypto/ecdsa"
+	mathrand "math/rand"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
@@ -21,17 +22,32 @@ import (
 	"mock-my-mta/storage"
 )
 
+// SmtpBehavior defines runtime-configurable SMTP behavior for chaos testing.
+type SmtpBehavior struct {
+	RejectRate    int    // percentage (0-100) of emails to reject
+	RejectMessage string // 5xx error message
+	DelayMs       int    // delay in milliseconds before accepting
+	BounceRate    int    // percentage (0-100) of emails to bounce after accepting
+	BounceMessage string // DSN bounce message
+}
+
 type Server struct {
 	server        *smtpd.Server
 	configuration Configuration
 
 	storageEngine storage.StorageService
-	onNewEmail    func(emailID string) // callback for WebSocket notifications
+	onNewEmail    func(emailID string)   // callback for WebSocket notifications
+	getBehavior   func() SmtpBehavior    // callback to get current SMTP behavior settings
 }
 
 // SetOnNewEmail registers a callback invoked when a new email is stored.
 func (s *Server) SetOnNewEmail(fn func(emailID string)) {
 	s.onNewEmail = fn
+}
+
+// SetGetBehavior registers a callback to read current SMTP behavior settings.
+func (s *Server) SetGetBehavior(fn func() SmtpBehavior) {
+	s.getBehavior = fn
 }
 
 func NewServer(config Configuration, storageEngine storage.StorageService) *Server {
@@ -100,6 +116,25 @@ func (s *Server) connectionChecker(peer smtpd.Peer) error {
 func (s *Server) handler(peer smtpd.Peer, env smtpd.Envelope) error {
 	log.Logf(log.DEBUG, "peer=%+v", peer)
 	log.Logf(log.DEBUG, "envelope=%+v", env)
+
+	// Apply behavior settings (chaos testing)
+	if s.getBehavior != nil {
+		behavior := s.getBehavior()
+
+		// Delay
+		if behavior.DelayMs > 0 {
+			log.Logf(log.DEBUG, "injecting %dms delay", behavior.DelayMs)
+			time.Sleep(time.Duration(behavior.DelayMs) * time.Millisecond)
+		}
+
+		// Rejection
+		if behavior.RejectRate > 0 {
+			if mathrand.Intn(100) < behavior.RejectRate {
+				log.Logf(log.INFO, "rejecting email (chaos: %d%% reject rate)", behavior.RejectRate)
+				return &smtpd.Error{Code: 550, Message: behavior.RejectMessage}
+			}
+		}
+	}
 
 	// create new byte reader from env.Data
 	br := bytes.NewReader(env.Data)

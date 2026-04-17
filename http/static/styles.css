@@ -316,6 +316,19 @@ body {
     background: var(--bg-hover);
 }
 
+.email-unread td {
+    font-weight: 600;
+}
+
+.email-unread td.preview span {
+    font-weight: 400;
+}
+
+.email-read td {
+    font-weight: 400;
+    opacity: 0.85;
+}
+
 .email-item td {
     padding: 5px 10px;
     font-size: 0.87em;
@@ -832,6 +845,21 @@ body {
     background-color: #3a4049 !important;
     color: #c8cdd5;
     border: 1px solid var(--border);
+}
+
+/* ── Connection status banner ─────────────────────────────────────────── */
+.connection-status {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: var(--danger);
+    color: #fff;
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 0.9em;
+    font-weight: 500;
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */

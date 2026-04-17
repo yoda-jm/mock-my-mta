@@ -33,6 +33,46 @@ $(function () {
 
     initTheme();
 
+    // ── Settings modal ─────────────────────────────────────────────────
+    $('#open-settings').click(function () {
+        $.ajax({
+            url: '/api/settings',
+            type: 'GET',
+            success: function (data) {
+                $('#settings-reject-rate').val(data.reject_rate);
+                $('#settings-reject-message').val(data.reject_message);
+                $('#settings-delay-ms').val(data.delay_ms);
+                $('#settings-bounce-rate').val(data.bounce_rate);
+                $('#settings-bounce-message').val(data.bounce_message);
+                const modal = new bootstrap.Modal($('#settingsModal')[0]);
+                modal.show();
+            }
+        });
+    });
+
+    $('#save-settings').click(function () {
+        const settings = {
+            reject_rate: parseInt($('#settings-reject-rate').val()) || 0,
+            reject_message: $('#settings-reject-message').val(),
+            delay_ms: parseInt($('#settings-delay-ms').val()) || 0,
+            bounce_rate: parseInt($('#settings-bounce-rate').val()) || 0,
+            bounce_message: $('#settings-bounce-message').val(),
+        };
+        $.ajax({
+            url: '/api/settings',
+            type: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify(settings),
+            success: function () {
+                showPopup('SMTP settings saved', 'success');
+                $('#settingsModal').modal('hide');
+            },
+            error: function (jqXHR) {
+                showPopup('Failed to save settings: ' + jqXHR.responseText, 'error');
+            }
+        });
+    });
+
     const searchInput = $('.search-box input[type="text"]');
     const suggestionDisplay = $('#suggestion-display');
 
@@ -485,6 +525,10 @@ $(function () {
         const wsUrl = protocol + '//' + window.location.host + '/api/ws';
         const ws = new WebSocket(wsUrl);
 
+        ws.onopen = function () {
+            $('#connection-status').hide();
+        };
+
         ws.onmessage = function (event) {
             const data = JSON.parse(event.data);
             switch (data.type) {
@@ -502,7 +546,7 @@ $(function () {
         };
 
         ws.onclose = function () {
-            // Reconnect after 3 seconds
+            $('#connection-status').show();
             setTimeout(connectWebSocket, 3000);
         };
 
@@ -1097,7 +1141,8 @@ $(function () {
     }
 
     function generateEmailListItem(email) {
-        return $('<tr class="email-item">')
+        const rowClass = email.is_read ? 'email-item email-read' : 'email-item email-unread';
+        return $(`<tr class="${rowClass}">`)
             .attr('data-testid', `email-row-${email.id}`)
             .append($('<td class="checkbox-col">').append(
                 $('<input type="checkbox" class="form-check-input email-checkbox">')

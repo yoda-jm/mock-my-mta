@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -40,6 +41,9 @@ func main() {
 			log.Logf(log.FATAL, "error: failed to parse engine config: %v", err)
 		}
 	}
+
+	// Environment variable overrides
+	applyEnvOverrides(&config)
 
 	log.SetMinimumLogLevel(log.ParseLogLevel(config.Logging.Level))
 	log.Logf(log.INFO, "starting mock-my-mta")
@@ -80,6 +84,17 @@ func main() {
 	// Wire SMTP → WebSocket notification
 	smtpServer.SetOnNewEmail(func(emailID string) {
 		mtahttp.BroadcastEvent("new_email", map[string]string{"id": emailID})
+	})
+	// Wire SMTP behavior settings from HTTP settings API
+	smtpServer.SetGetBehavior(func() smtp.SmtpBehavior {
+		s := mtahttp.GetSmtpSettings()
+		return smtp.SmtpBehavior{
+			RejectRate:    s.RejectRate,
+			RejectMessage: s.RejectMessage,
+			DelayMs:       s.DelayMs,
+			BounceRate:    s.BounceRate,
+			BounceMessage: s.BounceMessage,
+		}
 	})
 
 	go func() {
@@ -145,4 +160,26 @@ func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
 		log.Logf(log.INFO, "loaded email %v from file %q", mailUUID, filename)
 	}
 	return nil
+}
+
+// applyEnvOverrides lets environment variables override JSON config values.
+// Env var names: MOCKMYMTA_SMTP_ADDR, MOCKMYMTA_HTTP_ADDR, MOCKMYMTA_LOG_LEVEL, etc.
+func applyEnvOverrides(config *Configuration) {
+	if v := os.Getenv("MOCKMYMTA_SMTP_ADDR"); v != "" {
+		config.Smtpd.Addr = v
+	}
+	if v := os.Getenv("MOCKMYMTA_HTTP_ADDR"); v != "" {
+		config.Httpd.Addr = v
+	}
+	if v := os.Getenv("MOCKMYMTA_LOG_LEVEL"); v != "" {
+		config.Logging.Level = v
+	}
+	if v := os.Getenv("MOCKMYMTA_HTTP_DEBUG"); v == "true" || v == "1" {
+		config.Httpd.Debug = true
+	}
+	if v := os.Getenv("MOCKMYMTA_SMTP_MAX_MESSAGE_SIZE"); v != "" {
+		if size, err := strconv.Atoi(v); err == nil {
+			config.Smtpd.MaxMessageSize = size
+		}
+	}
 }

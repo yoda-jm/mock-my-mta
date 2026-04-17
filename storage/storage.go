@@ -59,6 +59,7 @@ type EmailHeader struct {
 	HasAttachments bool           `json:"has_attachments"`
 	Preview        string         `json:"preview"`
 	BodyVersions   []string       `json:"body_versions"`
+	IsRead         bool           `json:"is_read"`
 }
 
 type AttachmentHeader struct {

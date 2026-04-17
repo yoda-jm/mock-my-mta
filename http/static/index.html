@@ -48,7 +48,15 @@
                     <i class="bi bi-moon-fill"></i>
                     <span class="theme-toggle-label">Dark mode</span>
                 </button>
+                <button class="theme-toggle" id="open-settings" data-testid="open-settings" title="SMTP Settings">
+                    <i class="bi bi-gear"></i>
+                    <span>SMTP Settings</span>
+                </button>
             </div>
+        </div>
+        <!-- Connection status banner -->
+        <div id="connection-status" class="connection-status" style="display:none;">
+            <i class="bi bi-exclamation-triangle"></i> Backend disconnected — retrying...
         </div>
         <div class="right-pane">
             <div class="search-box">
@@ -241,6 +249,48 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- SMTP Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="settingsModalLabel"><i class="bi bi-gear me-2"></i>SMTP Behavior Settings</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted" style="font-size:0.85em;">Configure chaos testing behavior. Changes take effect immediately for new SMTP connections.</p>
+            <div class="mb-3">
+              <label class="form-label">Reject rate (%)</label>
+              <input type="number" class="form-control" id="settings-reject-rate" min="0" max="100" value="0">
+              <div class="form-text">Percentage of incoming emails to reject with a 5xx error.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Reject message</label>
+              <input type="text" class="form-control" id="settings-reject-message" value="550 Mailbox unavailable (mock rejection)">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Delay (ms)</label>
+              <input type="number" class="form-control" id="settings-delay-ms" min="0" value="0">
+              <div class="form-text">Delay in milliseconds before accepting each email.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Bounce rate (%)</label>
+              <input type="number" class="form-control" id="settings-bounce-rate" min="0" max="100" value="0">
+              <div class="form-text">Percentage of accepted emails to bounce with a DSN.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Bounce message</label>
+              <input type="text" class="form-control" id="settings-bounce-message" value="Your message could not be delivered (mock bounce)">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary btn-sm" id="save-settings" data-testid="save-settings">Save</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- MIME part preview modal -->

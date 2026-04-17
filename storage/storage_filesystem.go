@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 
 	"mock-my-mta/log"
 	"mock-my-mta/storage/matcher"
@@ -44,6 +45,7 @@ func (t filesystemType) GetFileSuffix() string {
 
 // FilesystemStorage is a storage engine that stores emails on the filesystem.
 type filesystemStorage struct {
+	mu             sync.RWMutex
 	folder         string
 	filesystemType filesystemType
 }
@@ -62,15 +64,16 @@ func newFilesystemStorage(folder string, filesystemTypeStr string) (*filesystemS
 
 // DeleteAllEmails implements Storage.
 func (s *filesystemStorage) DeleteAllEmails() error {
-	// list all files in the folder
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	emailIDs, err := s.getAllEmailIDs()
 	if err != nil {
 		return err
 	}
-	// delete all emails
 	var errors []error
 	for _, emailID := range emailIDs {
-		err := s.DeleteEmailByID(emailID)
+		// Use internal delete (no lock) since we already hold the lock
+		err := s.deleteEmailFile(emailID)
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -83,6 +86,12 @@ func (s *filesystemStorage) DeleteAllEmails() error {
 
 // DeleteEmailByID implements Storage.
 func (s *filesystemStorage) DeleteEmailByID(emailID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.deleteEmailFile(emailID)
+}
+
+func (s *filesystemStorage) deleteEmailFile(emailID string) error {
 	filePath := s.getEmailFilename(emailID)
 	log.Logf(log.DEBUG, "deleting file %v", filePath)
 	return os.Remove(filePath)
@@ -273,6 +282,8 @@ func (s *filesystemStorage) load(rootStorage Storage) error {
 
 // setWithID writes the raw email bytes directly to a file (zero parsing).
 func (s *filesystemStorage) setWithID(emailID string, rawEmail []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	log.Logf(log.INFO, "saving email %v", emailID)
 	emailFilename := s.getEmailFilename(emailID)
 	file, err := os.Create(emailFilename)
