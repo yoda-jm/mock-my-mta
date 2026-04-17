@@ -84,9 +84,12 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 		writeErrorResponse(w, http.StatusNotFound, "Not Found: %v", r.URL.Path)
 	})
 
-	// serve pprof routes
-	pprofRouter := r.PathPrefix("/debug/pprof").Subrouter()
-	AttachProfiler(pprofRouter)
+	// serve pprof routes (only in debug mode)
+	if config.Debug {
+		log.Logf(log.INFO, "debug mode enabled: pprof endpoints available at /debug/pprof/")
+		pprofRouter := r.PathPrefix("/debug/pprof").Subrouter()
+		AttachProfiler(pprofRouter)
+	}
 
 	// Create GUI router
 	// Serve static files from the "static" directory or embedded filesystem
@@ -188,9 +191,9 @@ func (s *Server) ListenAndServe() error {
 	return s.server.ListenAndServe()
 }
 
-func (s *Server) Shutdown() error {
-	log.Logf(log.INFO, "stopping http server...", s.addr)
-	return s.server.Shutdown(context.TODO())
+func (s *Server) Shutdown(ctx context.Context) error {
+	log.Logf(log.INFO, "stopping http server on %v...", s.addr)
+	return s.server.Shutdown(ctx)
 }
 
 func (s *Server) getMailboxes(w http.ResponseWriter, r *http.Request) {
@@ -438,7 +441,7 @@ func (s *Server) getAttachmentContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write the response
-	w.Header().Set("Content-Disposition", "attachment; filename="+attachment.Filename)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, attachment.Filename))
 	w.Header().Set("Content-Type", attachment.ContentType)
 	w.Write(attachment.Data)
 }

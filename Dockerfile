@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
 
 # Stage 2: minimal runtime image
 FROM alpine:3.19
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl netcat-openbsd
 WORKDIR /app
 
 COPY --from=builder /app/server ./server
@@ -20,6 +20,6 @@ RUN mkdir -p new-data
 EXPOSE 8025 1025
 
 HEALTHCHECK --interval=2s --timeout=5s --retries=20 \
-  CMD curl -sf http://localhost:8025/ > /dev/null || exit 1
+  CMD (curl -sf http://localhost:8025/ > /dev/null && nc -z localhost 1025) || exit 1
 
 CMD ["./server", "--init-with-test-data", "e2e/testdata/emails"]

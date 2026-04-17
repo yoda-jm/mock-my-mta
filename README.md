@@ -36,7 +36,7 @@ To install and run this project, follow these steps:
 2. Launch tests `go test ./... -v`
 3. Launch with some testing emails: `go run ./cmd/server/ --init-with-test-data testdata`
 4. Connect your browser to http://localhost:8080
-5. Configure your service sending emails to use localhost on port 8025
+5. Configure your service sending emails to use localhost on SMTP port 1025 (the web UI is on port 8025)
 
 ## Architecture
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"net/mail"
 	"os"
@@ -9,22 +10,20 @@ import (
 	"syscall"
 	"time"
 
-	// Import for configuration types and loading functions
-	mtahttp "mock-my-mta/http" // Alias for this project's http package
+	mtahttp "mock-my-mta/http"
 	"mock-my-mta/log"
 	"mock-my-mta/smtp"
 	"mock-my-mta/storage"
 )
 
 func main() {
-	// Parse command-line parameters
 	var initWithTestData string
 	var configurationFile string
 	flag.StringVar(&initWithTestData, "init-with-test-data", "", "Folder containing test data emails")
 	flag.StringVar(&configurationFile, "config", "", "Configuration file")
 	flag.Parse()
 
-	// Create a new storage instance
+	// Load configuration
 	var config Configuration
 	if len(configurationFile) > 0 {
 		var err error
@@ -44,6 +43,7 @@ func main() {
 
 	log.SetMinimumLogLevel(log.ParseLogLevel(config.Logging.Level))
 	log.Logf(log.INFO, "starting mock-my-mta")
+
 	storageEngine, err := storage.NewEngine(config.Storages)
 	if err != nil {
 		log.Logf(log.FATAL, "error: failed to create storage: %v", err)
@@ -53,9 +53,8 @@ func main() {
 		log.Logf(log.INFO, "loading test data from %q", initWithTestData)
 		err := loadTestData(storageEngine, initWithTestData)
 		if err != nil {
-			log.Logf(log.FATAL, "error: cannot load test data directory %q: %v:", initWithTestData, err)
+			log.Logf(log.FATAL, "error: cannot load test data directory %q: %v", initWithTestData, err)
 		}
-		// browse all the test data
 		emailsHeaders, _, err := storageEngine.SearchEmails("", 1, -1)
 		if err != nil {
 			log.Logf(log.FATAL, "error: cannot get emails: %v", err)
@@ -74,24 +73,38 @@ func main() {
 		}
 	}
 
-	// start smtp server
-	startSmtpServer(config.Smtpd, storageEngine)
+	// Start servers
+	smtpServer := smtp.NewServer(config.Smtpd, storageEngine)
+	httpServer := mtahttp.NewServer(config.Httpd, config.Smtpd.Relays, storageEngine)
 
-	// start http server
-	startHttpServer(config.Httpd, config.Smtpd.Relays, storageEngine)
+	go func() {
+		if err := smtpServer.ListenAndServe(); err != nil {
+			log.Logf(log.FATAL, "SMTP server error: %v", err)
+		}
+	}()
 
-	// Set up a signal handler to gracefully shutdown the servers on QUIT/TERM signals
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil {
+			log.Logf(log.FATAL, "HTTP server error: %v", err)
+		}
+	}()
+
+	// Graceful shutdown on QUIT/TERM/INT signals
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGQUIT, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
 
-	<-quit // Wait for the QUIT/TERM signal
-	log.Logf(log.INFO, "received QUIT/TERM signal. Shutting down servers...")
+	log.Logf(log.INFO, "shutting down servers (5s timeout)...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	// FIXME: shutdown servers
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Logf(log.ERROR, "HTTP server shutdown error: %v", err)
+	}
+	log.Logf(log.INFO, "servers stopped")
 }
 
 func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
-	// recursively find all eml files in the directory
 	var filenames []string
 	err := filepath.Walk(testDataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -126,44 +139,5 @@ func loadTestData(storageEngine *storage.Engine, testDataDir string) error {
 		}
 		log.Logf(log.INFO, "loaded email %v from file %q", mailUUID, filename)
 	}
-
 	return nil
-}
-
-func startSmtpServer(config smtp.Configuration, storageEngine *storage.Engine) {
-	server := smtp.NewServer(config, storageEngine)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Logf(log.ERROR, "SMTP server recovered from panic: %v", r)
-				// sleep for a while to avoid a tight loop
-				time.Sleep(1 * time.Second)
-				startSmtpServer(config, storageEngine) // Restart the server if panic occurs
-			}
-		}()
-
-		err := server.ListenAndServe()
-		if err != nil {
-			panic("SMTP server error: " + err.Error())
-		}
-	}()
-}
-
-func startHttpServer(config mtahttp.Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) {
-	server := mtahttp.NewServer(config, relayConfigurations, store)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Logf(log.ERROR, "HTTP server recovered from panic: %v", r)
-				// sleep for a while to avoid a tight loop
-				time.Sleep(1 * time.Second)
-				startHttpServer(config, relayConfigurations, store) // Restart the server if panic occurs
-			}
-		}()
-
-		err := server.ListenAndServe()
-		if err != nil {
-			panic("HTTP server error: " + err.Error())
-		}
-	}()
 }
