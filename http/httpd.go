@@ -79,6 +79,8 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/emails/{email_id}/cid/{cid}", s.getPartByCID).Methods("GET")
 	// Filter suggestions
 	apiRouter.HandleFunc("/filters/suggestions", getFilterSuggestions).Methods("GET")
+	// Health and stats
+	apiRouter.HandleFunc("/health", s.getHealth).Methods("GET")
 	// return error if the requested route is not found
 	apiRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusNotFound, "Not Found: %v", r.URL.Path)
@@ -661,6 +663,16 @@ func parsePageParameters(r *http.Request) (int, int, error) {
 	pageSize := 20
 
 	return page, pageSize, nil
+}
+
+func (s *Server) getHealth(w http.ResponseWriter, r *http.Request) {
+	// Quick health check — verify storage is accessible
+	_, _, err := s.store.SearchEmails("", 1, 1)
+	if err != nil {
+		writeErrorResponse(w, http.StatusServiceUnavailable, "storage unhealthy: %v", err)
+		return
+	}
+	writeJSONResponse(w, map[string]string{"status": "ok"})
 }
 
 // generateRequestID generates a unique request ID for each incoming request.
