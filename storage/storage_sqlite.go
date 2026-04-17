@@ -111,17 +111,20 @@ func (s *sqliteStorage) insertEmailHeader(header EmailHeader, raw []byte) error 
 	return err
 }
 
-// setWithID stores email metadata in SQLite.
-func (s *sqliteStorage) setWithID(emailID string, message *mail.Message) error {
-	raw, _ := serializeMessage(message)
+// setWithID stores email metadata and raw bytes in SQLite.
+func (s *sqliteStorage) setWithID(emailID string, rawEmail []byte) error {
+	msg, err := mail.ReadMessage(strings.NewReader(string(rawEmail)))
+	if err != nil {
+		return fmt.Errorf("sqlite storage: cannot parse email %s: %v", emailID, err)
+	}
 
-	mp, err := multipart.New(message)
+	mp, err := multipart.New(msg)
 	if err != nil {
 		return fmt.Errorf("sqlite storage: cannot parse email %s: %v", emailID, err)
 	}
 
 	header := newEmailHeaderFromMultipart(emailID, mp)
-	return s.insertEmailHeader(header, raw)
+	return s.insertEmailHeader(header, rawEmail)
 }
 
 // --- Search methods ---

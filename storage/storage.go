@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"net/mail"
 	"time"
 )
 
@@ -37,7 +36,8 @@ type storageLayer interface {
 	// load loads the storage based on the root storage
 	load(rootStorage Storage) error
 	// setWithID inserts a new email into the storage.
-	setWithID(emailID string, message *mail.Message) error
+	// rawEmail is the canonical byte representation — layers parse it only if needed.
+	setWithID(emailID string, rawEmail []byte) error
 }
 
 type Mailbox struct {

@@ -140,11 +140,18 @@ Engine.Set(message)
   │
   ├─ generate emailID (date-prefixed UUID)
   ├─ inject Date header if missing
+  ├─ serialize message to []byte ONCE (parse-once optimization)
   │
-  ├─ MEMORY.setWithID(id, msg)    ← parse and cache headers, bodies, attachments
-  ├─ SQLITE.setWithID(id, msg)    ← INSERT indexed metadata row
-  └─ FILESYSTEM.setWithID(id, msg) ← write .eml file to disk
+  ├─ MEMORY.setWithID(id, rawBytes)     ← parse bytes → cache headers, bodies, attachments
+  ├─ SQLITE.setWithID(id, rawBytes)     ← parse bytes → INSERT indexed metadata + store BLOB
+  └─ FILESYSTEM.setWithID(id, rawBytes) ← write bytes directly to .eml file (zero parsing)
 ```
+
+**Parse-once optimization:** The `mail.Message.Body` is an `io.Reader` that can only
+be consumed once. The Engine serializes it to `[]byte` in `Set()`, then passes the
+same immutable byte slice to all layers. Each layer creates its own
+`bytes.NewReader(rawBytes)` only if it needs to parse. The Filesystem layer writes
+raw bytes directly — no parsing needed for writes.
 
 All layers with `write`, `cache`, or `all` scope receive the write.
 A layer returning `unimplementedMethodInLayerError` is silently skipped.

@@ -271,53 +271,38 @@ func (s *filesystemStorage) load(rootStorage Storage) error {
 	return nil
 }
 
-// setWithID inserts a new email into the storage.
-func (s *filesystemStorage) setWithID(emailID string, message *mail.Message) error {
+// setWithID writes the raw email bytes directly to a file (zero parsing).
+func (s *filesystemStorage) setWithID(emailID string, rawEmail []byte) error {
 	log.Logf(log.INFO, "saving email %v", emailID)
-	// create the file
 	emailFilename := s.getEmailFilename(emailID)
 	file, err := os.Create(emailFilename)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+
 	switch s.filesystemType {
 	case FileStorageTypeEML:
-		// nothing to do
+		// Write raw bytes directly — no parsing needed
 	case FileStorageTypeMailhog:
-		// write a fake mailhog header
+		// Prepend fake mailhog envelope header
 		var header string
 		header += "HELO:<fake-server>\n"
-		header += "FROM:<fake-sender@exmaple.com>\n"
-		header += "TO:<fake-recipient@example.com\n"
+		header += "FROM:<fake-sender@example.com>\n"
+		header += "TO:<fake-recipient@example.com>\n"
 		header += "\n"
 		if _, err := file.WriteString(header); err != nil {
 			return err
 		}
 	}
-	// write the email to the file
-	writer := bufio.NewWriter(file)
-	for key, values := range message.Header {
-		for _, value := range values {
-			if _, err := writer.WriteString(fmt.Sprintf("%v: %v\n", key, value)); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err = writer.WriteString("\n"); err != nil {
+
+	if _, err := file.Write(rawEmail); err != nil {
 		return err
 	}
-	if _, err = writer.ReadFrom(message.Body); err != nil {
-		return err
-	}
-	err = writer.Flush()
-	if err != nil {
-		return err
-	}
-	// check if we can parse the email
+
+	// Verify the file is parseable
 	_, err = s.loadEmailFromID(emailID)
 	if err != nil {
-		// delete the file
 		os.Remove(emailFilename)
 		return fmt.Errorf("cannot parse email %v: %v", emailID, err)
 	}

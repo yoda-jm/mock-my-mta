@@ -103,20 +103,14 @@ func (m *memoryStorage) load(rootStorage Storage) error {
 }
 
 // setWithID parses the email and caches all derived data.
-func (m *memoryStorage) setWithID(emailID string, message *mail.Message) error {
-	// Serialize raw email first (consumes message.Body)
-	rawBytes, err := serializeMessage(message)
+func (m *memoryStorage) setWithID(emailID string, rawEmail []byte) error {
+	// Parse from the immutable raw bytes — no double-read issue
+	msg, err := mail.ReadMessage(bytes.NewReader(rawEmail))
 	if err != nil {
-		log.Logf(log.WARNING, "memory storage: could not serialize raw email %s: %v", emailID, err)
+		return fmt.Errorf("memory storage: cannot parse email %s: %v", emailID, err)
 	}
 
-	// Re-parse from raw bytes since message.Body was consumed
-	freshMsg, err := mail.ReadMessage(bytes.NewReader(rawBytes))
-	if err != nil {
-		return fmt.Errorf("memory storage: cannot re-parse email %s: %v", emailID, err)
-	}
-
-	mp, err := multipart.New(freshMsg)
+	mp, err := multipart.New(msg)
 	if err != nil {
 		return fmt.Errorf("memory storage: cannot parse email %s: %v", emailID, err)
 	}
@@ -165,9 +159,7 @@ func (m *memoryStorage) setWithID(emailID string, message *mail.Message) error {
 	m.headers[emailID] = header
 	m.bodies[emailID] = bodies
 	m.attachments[emailID] = attHeaders
-	if rawBytes != nil {
-		m.rawEmails[emailID] = rawBytes
-	}
+	m.rawEmails[emailID] = rawEmail
 	m.mu.Unlock()
 
 	return nil

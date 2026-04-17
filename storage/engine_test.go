@@ -137,20 +137,12 @@ func TestEngineSetWithNoDate(t *testing.T) {
 		t.Errorf("Expected to pass email ID, got empty string")
 	}
 	if mockStorageLayer.calls["setWithID"][1] == nil {
-		t.Errorf("Expected non-nil message, got nil")
+		t.Errorf("Expected non-nil rawEmail bytes, got nil")
 	}
-	email := mockStorageLayer.calls["setWithID"][1].(*mail.Message)
-	if email.Header == nil {
-		t.Errorf("Expected non-nil header, got nil")
-	}
-	// expect that the email header to have a date
-	if email.Header.Get("Date") == "" {
-		t.Errorf("Expected email header to have a date, got empty string")
-	}
-	// check that the date is a valid RFC1123Z date
-	_, err = time.Parse(time.RFC1123Z, email.Header.Get("Date"))
-	if err != nil {
-		t.Errorf("Expected email header to have a valid date, got %v", email.Header.Get("Date"))
+	rawEmail := mockStorageLayer.calls["setWithID"][1].([]byte)
+	rawStr := string(rawEmail)
+	if !strings.Contains(rawStr, "Date:") {
+		t.Errorf("Expected raw email to contain Date header, got %q", rawStr)
 	}
 }
 
@@ -175,15 +167,12 @@ func TestEngineSetWithDate(t *testing.T) {
 		t.Errorf("Expected to pass email ID, got empty string")
 	}
 	if mockStorageLayer.calls["setWithID"][1] == nil {
-		t.Errorf("Expected non-nil message, got nil")
+		t.Errorf("Expected non-nil rawEmail bytes, got nil")
 	}
-	email := mockStorageLayer.calls["setWithID"][1].(*mail.Message)
-	if email.Header == nil {
-		t.Errorf("Expected non-nil header, got nil")
-	}
-	// expect that the email header have the correct date
-	if email.Header.Get("Date") != date.Format(time.RFC1123Z) {
-		t.Errorf("Expected email header to have date %v, got %v", date.Format(time.RFC1123Z), email.Header.Get("Date"))
+	rawEmail := mockStorageLayer.calls["setWithID"][1].([]byte)
+	// The raw bytes should contain the original date header
+	if !strings.Contains(string(rawEmail), date.Format(time.RFC1123Z)) {
+		t.Errorf("Expected raw email to contain date %v, got %q", date.Format(time.RFC1123Z), string(rawEmail))
 	}
 }
 
@@ -207,20 +196,12 @@ func TestEngineSetWithInvalidDate(t *testing.T) {
 		t.Errorf("Expected to pass email ID, got empty string")
 	}
 	if mockStorageLayer.calls["setWithID"][1] == nil {
-		t.Errorf("Expected non-nil message, got nil")
+		t.Errorf("Expected non-nil rawEmail bytes, got nil")
 	}
-	email := mockStorageLayer.calls["setWithID"][1].(*mail.Message)
-	if email.Header == nil {
-		t.Errorf("Expected non-nil header, got nil")
-	}
-	// expect that the email header to have a date
-	if email.Header.Get("Date") == "" {
-		t.Errorf("Expected email header to have a date, got empty string")
-	}
-	// check that the date is a valid RFC1123Z date
-	_, err = time.Parse(time.RFC1123Z, email.Header.Get("Date"))
-	if err != nil {
-		t.Errorf("Expected email header to have a valid date, got %v", email.Header.Get("Date"))
+	rawEmail := mockStorageLayer.calls["setWithID"][1].([]byte)
+	rawStr := string(rawEmail)
+	if !strings.Contains(rawStr, "Date:") {
+		t.Errorf("Expected raw email to contain Date header, got %q", rawStr)
 	}
 }
 
@@ -344,7 +325,7 @@ func getAllMethods() []string {
 func executeAllEngineMethods(engine *Engine) map[string]error {
 	errors := make(map[string]error)
 	errors["load"] = engine.load(nil)
-	errors["setWithID"] = engine.setWithID("email-id", &mail.Message{})
+	errors["setWithID"] = engine.setWithID("email-id", []byte("From: test@test.com\n\nBody"))
 	errors["DeleteEmailByID"] = engine.DeleteEmailByID("email-id")
 	_, errors["GetAttachment"] = engine.GetAttachment("email-id", "attachment-id")
 	_, errors["GetAttachments"] = engine.GetAttachments("email-id")
@@ -482,6 +463,59 @@ func TestMockStorageLayerEngineTwoLayersNoDefaulting(t *testing.T) {
 	}
 }
 
+// TestMultiLayerSetReceivesSameBytes verifies that all writable layers
+// receive the same raw bytes without double-consumption issues.
+func TestMultiLayerSetReceivesSameBytes(t *testing.T) {
+	layer1 := newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))
+	layer2 := newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))
+	engine := newTestEngine(layer1, layer2)
+
+	msg := &mail.Message{
+		Header: mail.Header{
+			"From":    []string{"test@example.com"},
+			"Subject": []string{"Multi-layer test"},
+		},
+		Body: strings.NewReader("Hello from multi-layer test body"),
+	}
+
+	_, err := engine.Set(msg)
+	if err != nil {
+		t.Fatalf("Set() returned error: %v", err)
+	}
+
+	// Both layers should have received setWithID calls
+	if _, found := layer1.calls["setWithID"]; !found {
+		t.Fatal("Expected layer1.setWithID to be called")
+	}
+	if _, found := layer2.calls["setWithID"]; !found {
+		t.Fatal("Expected layer2.setWithID to be called")
+	}
+
+	// Both should receive non-empty raw bytes containing the body
+	raw1 := layer1.calls["setWithID"][1].([]byte)
+	raw2 := layer2.calls["setWithID"][1].([]byte)
+
+	if len(raw1) == 0 {
+		t.Error("Layer1 received empty raw bytes")
+	}
+	if len(raw2) == 0 {
+		t.Error("Layer2 received empty raw bytes")
+	}
+
+	// Both should contain the body text (proving no double-consumption)
+	if !strings.Contains(string(raw1), "Hello from multi-layer test body") {
+		t.Errorf("Layer1 raw bytes missing body content: %q", string(raw1))
+	}
+	if !strings.Contains(string(raw2), "Hello from multi-layer test body") {
+		t.Errorf("Layer2 raw bytes missing body content: %q", string(raw2))
+	}
+
+	// Both should receive identical bytes
+	if string(raw1) != string(raw2) {
+		t.Error("Layer1 and Layer2 received different raw bytes")
+	}
+}
+
 type mockStorageLayer struct {
 	// list of method names that have been called with their arguments
 	calls              map[string][]interface{}
@@ -546,6 +580,6 @@ func (m *mockStorageLayer) load(rootStorage Storage) error {
 	return m.addCall("load", rootStorage)
 }
 
-func (m *mockStorageLayer) setWithID(emailID string, message *mail.Message) error {
-	return m.addCall("setWithID", emailID, message)
+func (m *mockStorageLayer) setWithID(emailID string, rawEmail []byte) error {
+	return m.addCall("setWithID", emailID, rawEmail)
 }

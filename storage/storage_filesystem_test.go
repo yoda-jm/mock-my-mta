@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"net/mail"
 	"os"
 	"path/filepath"
 	"sort"
@@ -75,14 +74,9 @@ func TestEMLStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	// create a new email
-	message, err := mail.ReadMessage(strings.NewReader(simpleEmail))
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	// set the email
+	// set the email using raw bytes
 	const emailID = "simple-email"
-	err = storage.setWithID(emailID, message)
+	err = storage.setWithID(emailID, []byte(simpleEmail))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -132,14 +126,9 @@ func TestMailhogStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	// create a new email
-	message, err := mail.ReadMessage(strings.NewReader(simpleEmail))
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	// set the email
+	// set the email using raw bytes
 	const emailID = "simple-email"
-	err = storage.setWithID(emailID, message)
+	err = storage.setWithID(emailID, []byte(simpleEmail))
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

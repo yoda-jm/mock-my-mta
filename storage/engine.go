@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
 	"net/mail"
 	"time"
@@ -266,6 +265,8 @@ func (e *Engine) DeleteEmailByID(emailID string) error {
 }
 
 // Set inserts a new email into the storage. Writes to ALL writable layers.
+// The message body is serialized to bytes once; layers receive the immutable
+// []byte and parse only what they need (zero-copy for filesystem writes).
 func (e *Engine) Set(message *mail.Message) (string, error) {
 	emailID := uuid.New().String()
 	if _, exists := message.Header["Date"]; !exists {
@@ -277,24 +278,19 @@ func (e *Engine) Set(message *mail.Message) (string, error) {
 		message.Header["Date"] = []string{date.Format(time.RFC1123Z)}
 	}
 	emailID = date.Format(time.RFC3339) + "-" + emailID
-	return emailID, e.setWithID(emailID, message)
-}
 
-func (e *Engine) setWithID(emailID string, message *mail.Message) error {
-	// Serialize the message body once since io.Reader can only be consumed once.
-	// Each layer gets a fresh message with a new body reader.
+	// Serialize once — all layers share this immutable byte slice
 	rawBytes, err := serializeMessage(message)
 	if err != nil {
-		return fmt.Errorf("cannot serialize email: %v", err)
+		return "", fmt.Errorf("cannot serialize email: %v", err)
 	}
 
+	return emailID, e.setWithID(emailID, rawBytes)
+}
+
+func (e *Engine) setWithID(emailID string, rawEmail []byte) error {
 	for _, s := range e.writeLayers {
-		// Reconstruct message with fresh body reader for each layer
-		freshMsg, err := mail.ReadMessage(bytes.NewReader(rawBytes))
-		if err != nil {
-			return fmt.Errorf("cannot re-parse email for layer: %v", err)
-		}
-		err = s.setWithID(emailID, freshMsg)
+		err := s.setWithID(emailID, rawEmail)
 		if err != nil {
 			if isUnimplemented(err) {
 				continue
