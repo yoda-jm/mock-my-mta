@@ -42,12 +42,30 @@ class InboxPage {
   }
 
   /**
+   * Navigate directly to an email by ID using the deep link URL.
+   * @param {string} emailId
+   */
+  async gotoEmail(emailId) {
+    await this.page.goto(`/#/email/${encodeURIComponent(emailId)}`);
+    await this.page.waitForSelector('.email-view', { state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Navigate directly to a search query using the deep link URL.
+   * @param {string} query
+   */
+  async gotoSearch(query) {
+    await this.page.goto(`/#/search/${encodeURIComponent(query)}`);
+    await this.page.waitForSelector('[data-testid="email-list-body"]');
+  }
+
+  /**
    * Call the wait-for-email API endpoint.
-   * Returns the matched email header or throws on timeout.
+   * Long-polls until a matching email arrives or timeout.
    *
    * @param {string} query   Search query (same syntax as the search box)
    * @param {string} timeout Duration string (e.g. '5s', '30s')
-   * @returns {Promise<object>} The matched EmailHeader JSON
+   * @returns {Promise<{email: object, total_matches: number, url: string}>}
    */
   async waitForEmail(query, timeout = '10s') {
     const baseUrl = this.page.url().replace(/#.*$/, '').replace(/\/$/, '');

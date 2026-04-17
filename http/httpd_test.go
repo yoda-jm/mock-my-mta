@@ -557,12 +557,18 @@ func TestWaitForEmail_ImmediateMatch(t *testing.T) {
 		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
-	var email storage.EmailHeader
-	if err := json.Unmarshal(rr.Body.Bytes(), &email); err != nil {
+	var resp WaitForEmailResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("could not unmarshal: %v", err)
 	}
-	if email.ID != "e1" {
-		t.Errorf("expected email e1, got %v", email.ID)
+	if resp.Email.ID != "e1" {
+		t.Errorf("expected email e1, got %v", resp.Email.ID)
+	}
+	if resp.TotalMatches != 1 {
+		t.Errorf("expected total_matches=1, got %d", resp.TotalMatches)
+	}
+	if !strings.Contains(resp.URL, "/#/email/e1") {
+		t.Errorf("expected URL containing /#/email/e1, got %q", resp.URL)
 	}
 }
 

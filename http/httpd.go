@@ -732,9 +732,13 @@ func (s *Server) waitForEmail(w http.ResponseWriter, r *http.Request) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
+	buildResponse := func(r *http.Request) *WaitForEmailResponse {
+		return s.findMatchingEmails(r, query)
+	}
+
 	// Check immediately before starting the loop
-	if email, found := s.findMatchingEmail(query); found {
-		writeJSONResponse(w, email)
+	if resp := buildResponse(r); resp != nil {
+		writeJSONResponse(w, resp)
 		return
 	}
 
@@ -744,24 +748,42 @@ func (s *Server) waitForEmail(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusRequestTimeout, "no email matching %q within %v", query, timeout)
 			return
 		case <-r.Context().Done():
-			// Client disconnected
 			return
 		case <-ticker.C:
-			if email, found := s.findMatchingEmail(query); found {
-				logf(requestID, r, log.DEBUG, "found matching email: %v", email.ID)
-				writeJSONResponse(w, email)
+			if resp := buildResponse(r); resp != nil {
+				logf(requestID, r, log.DEBUG, "found %d matching email(s)", resp.TotalMatches)
+				writeJSONResponse(w, resp)
 				return
 			}
 		}
 	}
 }
 
-func (s *Server) findMatchingEmail(query string) (storage.EmailHeader, bool) {
+// WaitForEmailResponse is the response from the wait-for-email API.
+type WaitForEmailResponse struct {
+	Email        storage.EmailHeader `json:"email"`         // first matching email
+	TotalMatches int                 `json:"total_matches"` // total number of matches
+	URL          string              `json:"url"`           // deep link to view the email
+}
+
+func (s *Server) findMatchingEmails(r *http.Request, query string) *WaitForEmailResponse {
 	emails, total, err := s.store.SearchEmails(query, 1, 1)
 	if err != nil || total == 0 || len(emails) == 0 {
-		return storage.EmailHeader{}, false
+		return nil
 	}
-	return emails[0], true
+	// Build the deep link URL
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	host := r.Host
+	emailURL := fmt.Sprintf("%s://%s/#/email/%s", scheme, host, emails[0].ID)
+
+	return &WaitForEmailResponse{
+		Email:        emails[0],
+		TotalMatches: total,
+		URL:          emailURL,
+	}
 }
 
 // generateRequestID generates a unique request ID for each incoming request.

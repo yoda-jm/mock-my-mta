@@ -355,11 +355,19 @@ test.describe('Email Feature Tests', () => {
 
   // ── Wait-for-email API ─────────────────────────────────────────────────
 
-  test('waitForEmail API — immediate match returns email', async () => {
-    // The test data already has an email from uniquesender@filter-test.net
-    const email = await inbox.waitForEmail('from:uniquesender@filter-test.net', '5s');
-    expect(email.id).toBeTruthy();
-    expect(email.from.address).toBe('uniquesender@filter-test.net');
+  test('waitForEmail API — immediate match returns email with URL and count', async () => {
+    const result = await inbox.waitForEmail('from:uniquesender@filter-test.net', '5s');
+    expect(result.email.id).toBeTruthy();
+    expect(result.email.from.address).toBe('uniquesender@filter-test.net');
+    expect(result.total_matches).toBe(1);
+    expect(result.url).toContain('/#/email/');
+  });
+
+  test('waitForEmail API — multiple matches returns count', async () => {
+    const result = await inbox.waitForEmail('from:sender@example.com', '5s');
+    expect(result.email.id).toBeTruthy();
+    expect(result.total_matches).toBeGreaterThan(1);
+    expect(result.url).toContain('/#/email/');
   });
 
   test('waitForEmail API — timeout returns error', async () => {
@@ -371,6 +379,29 @@ test.describe('Email Feature Tests', () => {
     }
     expect(error).toBeDefined();
     expect(error.message).toContain('408');
+  });
+
+  test('gotoEmail — navigate directly to email by ID', async () => {
+    // Get an email ID via the API first
+    const result = await inbox.waitForEmail('from:uniquesender@filter-test.net', '5s');
+    const emailId = result.email.id;
+
+    // Navigate directly using deep link
+    await inbox.gotoEmail(emailId);
+    await expect(inbox.emailView.locator).toBeVisible();
+    await expect(inbox.emailView.header).toContainText('uniquesender@filter-test.net');
+  });
+
+  test('gotoSearch — navigate directly to search results', async () => {
+    await inbox.gotoSearch('has:attachment');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // All visible rows should have the paperclip
+    const count = await inbox.emailList.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      await expect(inbox.emailList.row(i).attachmentIcon).toBeVisible();
+    }
   });
 
   // ── Slightly destructive (single delete) — placed last ──────────────────
