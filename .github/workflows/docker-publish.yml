@@ -25,12 +25,11 @@ jobs:
       platforms: linux/amd64,linux/arm64
       meta-images: vincentleligeour/mock-my-mta
       meta-tags: |
+        type=raw,value=latest,enable={{is_default_branch}}
         type=ref,event=branch
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
         type=semver,pattern={{major}}
-        type=sha,prefix={{branch}}-
-        type=raw,value=latest,enable={{is_default_branch}}
     secrets:
       registry-auths: |
         - registry: docker.io
@@ -48,6 +47,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ secrets.DOCKERHUB_USERNAME }}/mock-my-mta
-          short-description: "Lightweight SMTP mock server with web UI for capturing and inspecting emails during development and testing"
+          repository: vincentleligeour/mock-my-mta
+          short-description: "Lightweight SMTP mock server with web UI for email testing"
           readme-filepath: ./DOCKERHUB.md
