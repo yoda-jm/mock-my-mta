@@ -516,6 +516,82 @@ func TestBulkDelete_MalformedJSON(t *testing.T) {
 	}
 }
 
+func TestGetStats(t *testing.T) {
+	store := newMockStorage()
+	store.emails["e1"] = storage.EmailHeader{ID: "e1", Subject: "Test"}
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest("GET", "/api/stats", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var stats map[string]interface{}
+	if err := json.Unmarshal(rr.Body.Bytes(), &stats); err != nil {
+		t.Fatalf("could not unmarshal: %v", err)
+	}
+	if stats["status"] != "ok" {
+		t.Errorf("expected status ok, got %v", stats["status"])
+	}
+	if stats["email_count"].(float64) != 1 {
+		t.Errorf("expected email_count=1, got %v", stats["email_count"])
+	}
+	if stats["uptime"] == nil {
+		t.Error("expected uptime field")
+	}
+}
+
+func TestWaitForEmail_ImmediateMatch(t *testing.T) {
+	store := newMockStorage()
+	store.emails["e1"] = storage.EmailHeader{ID: "e1", Subject: "Welcome"}
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest("GET", "/api/emails/wait?query=Welcome&timeout=2s", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var email storage.EmailHeader
+	if err := json.Unmarshal(rr.Body.Bytes(), &email); err != nil {
+		t.Fatalf("could not unmarshal: %v", err)
+	}
+	if email.ID != "e1" {
+		t.Errorf("expected email e1, got %v", email.ID)
+	}
+}
+
+func TestWaitForEmail_Timeout(t *testing.T) {
+	store := newMockStorage()
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest("GET", "/api/emails/wait?query=nonexistent&timeout=1s", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusRequestTimeout {
+		t.Errorf("expected 408, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestWaitForEmail_InvalidTimeout(t *testing.T) {
+	store := newMockStorage()
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest("GET", "/api/emails/wait?query=test&timeout=invalid", nil)
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestGetPartByCID_EmailNotFound(t *testing.T) {
 	store := newMockStorage()
 	srv := newTestServer(store)

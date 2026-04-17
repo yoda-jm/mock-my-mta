@@ -1,8 +1,9 @@
 package smtp
 
 type Configuration struct {
-	Addr   string              `json:"addr"`
-	Relays RelayConfigurations `json:"relays"`
+	Addr           string              `json:"addr"`
+	MaxMessageSize int                 `json:"max_message_size"` // bytes; 0 = unlimited
+	Relays         RelayConfigurations `json:"relays"`
 }
 
 type RelayConfigurations map[string]RelayConfiguration

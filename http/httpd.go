@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/microcosm-cc/bluemonday"
 
@@ -26,8 +27,9 @@ import (
 )
 
 type Server struct {
-	server *http.Server
-	addr   string
+	server    *http.Server
+	addr      string
+	startTime time.Time
 
 	relayConfigurations smtp.RelayConfigurations
 
@@ -49,6 +51,7 @@ func logf(requestID string, r *http.Request, level log.LogLevel, format string, 
 func NewServer(config Configuration, relayConfigurations smtp.RelayConfigurations, store storage.Storage) *Server {
 	s := &Server{
 		addr:                config.Addr,
+		startTime:           time.Now(),
 		relayConfigurations: relayConfigurations,
 		store:               store,
 	}
@@ -64,6 +67,7 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	// Mailboxes
 	apiRouter.HandleFunc("/mailboxes", s.getMailboxes).Methods("GET")
 	// Emails
+	apiRouter.HandleFunc("/emails/wait", s.waitForEmail).Methods("GET")
 	apiRouter.HandleFunc("/emails/", s.getEmails).Methods("GET")
 	apiRouter.HandleFunc("/emails/", s.deleteEmails).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/bulk-delete", s.bulkDeleteEmails).Methods("POST")
@@ -84,6 +88,7 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/filters/suggestions", getFilterSuggestions).Methods("GET")
 	// Health and stats
 	apiRouter.HandleFunc("/health", s.getHealth).Methods("GET")
+	apiRouter.HandleFunc("/stats", s.getStats).Methods("GET")
 	// WebSocket for real-time notifications
 	apiRouter.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r)
@@ -682,6 +687,81 @@ func (s *Server) getHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSONResponse(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) getStats(w http.ResponseWriter, r *http.Request) {
+	emailCount := 0
+	emails, total, err := s.store.SearchEmails("", 1, 1)
+	if err == nil {
+		emailCount = total
+		_ = emails
+	}
+
+	stats := map[string]interface{}{
+		"status":      "ok",
+		"uptime":      time.Since(s.startTime).String(),
+		"started_at":  s.startTime.Format(time.RFC3339),
+		"email_count": emailCount,
+		"http_addr":   s.addr,
+	}
+	writeJSONResponse(w, stats)
+}
+
+// waitForEmail long-polls until an email matching the query arrives or timeout.
+// Usage: GET /api/emails/wait?query=from:alice@test.com&timeout=30s
+// Returns the first matching email, or 408 Request Timeout.
+func (s *Server) waitForEmail(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("query")
+	timeoutStr := r.URL.Query().Get("timeout")
+	if timeoutStr == "" {
+		timeoutStr = "30s"
+	}
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "invalid timeout: %v", err)
+		return
+	}
+	if timeout > 5*time.Minute {
+		timeout = 5 * time.Minute
+	}
+
+	requestID := generateRequestID()
+	logf(requestID, r, log.DEBUG, "waiting for email matching %q (timeout=%v)", query, timeout)
+
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	// Check immediately before starting the loop
+	if email, found := s.findMatchingEmail(query); found {
+		writeJSONResponse(w, email)
+		return
+	}
+
+	for {
+		select {
+		case <-deadline:
+			writeErrorResponse(w, http.StatusRequestTimeout, "no email matching %q within %v", query, timeout)
+			return
+		case <-r.Context().Done():
+			// Client disconnected
+			return
+		case <-ticker.C:
+			if email, found := s.findMatchingEmail(query); found {
+				logf(requestID, r, log.DEBUG, "found matching email: %v", email.ID)
+				writeJSONResponse(w, email)
+				return
+			}
+		}
+	}
+}
+
+func (s *Server) findMatchingEmail(query string) (storage.EmailHeader, bool) {
+	emails, total, err := s.store.SearchEmails(query, 1, 1)
+	if err != nil || total == 0 || len(emails) == 0 {
+		return storage.EmailHeader{}, false
+	}
+	return emails[0], true
 }
 
 // generateRequestID generates a unique request ID for each incoming request.

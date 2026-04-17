@@ -52,6 +52,10 @@ func NewServer(config Configuration, storageEngine storage.StorageService) *Serv
 		TLSConfig:         tlsConfig,
 		ForceTLS:          false, // STARTTLS available but not required
 		Authenticator:     s.authenticator,
+		MaxMessageSize:    config.MaxMessageSize,
+	}
+	if config.MaxMessageSize > 0 {
+		log.Logf(log.INFO, "SMTP max message size: %d bytes", config.MaxMessageSize)
 	}
 	return s
 }
