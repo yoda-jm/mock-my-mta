@@ -300,6 +300,59 @@ test.describe('Email Feature Tests', () => {
     await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-quoted-phrase.png');
   });
 
+  // ── URL routing / deep linking ──────────────────────────────────────
+
+  test('URL hash updates when searching', async () => {
+    await inbox.search.search('from:sender@example.com');
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // Hash should reflect the search query
+    const hash = await inbox.page.evaluate(() => window.location.hash);
+    expect(hash).toContain('#/search/');
+    expect(hash).toContain('sender');
+  });
+
+  test('URL hash updates when opening an email', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    const hash = await inbox.page.evaluate(() => window.location.hash);
+    expect(hash).toMatch(/#\/email\//);
+  });
+
+  test('URL hash updates when switching tabs', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+
+    // Click the headers tab
+    const headersTab = inbox.page.locator('[data-testid="email-body-version-tab-headers"]');
+    const resp = inbox.page.waitForResponse(r => r.url().includes('/headers'));
+    await headersTab.click();
+    await resp;
+
+    const hash = await inbox.page.evaluate(() => window.location.hash);
+    expect(hash).toContain('/headers');
+  });
+
+  test('Deep link to search restores results', async ({ page }) => {
+    const deepInbox = new InboxPage(page);
+    // Navigate directly to a search URL
+    await page.goto('/#/search/from%3Auniquesender%40filter-test.net');
+    await page.waitForSelector('[data-testid="email-list-body"]');
+    await expect(deepInbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    expect(await deepInbox.emailList.pagination.totalEmails()).toBe(1);
+  });
+
+  test('URL normalizes to #/ for empty search on page 1', async () => {
+    await inbox.search.clear();
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    const hash = await inbox.page.evaluate(() => window.location.hash);
+    expect(hash).toBe('#/');
+  });
+
   // ── Slightly destructive (single delete) — placed last ──────────────────
 
   test('Delete from email view — removes email and returns to list', async () => {

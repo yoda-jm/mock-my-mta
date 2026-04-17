@@ -160,14 +160,111 @@ $(function () {
 
     // initialize tooltips
     $('[title]').tooltip();
-    // initialize the search
-    setSearchQuery('');
-    resetCurrentPage()
-    refreshEmailList();
+
+    // ── Hash-based URL routing ─────────────────────────────────────────
+    let routerSuppressHashChange = false;
+
+    function setHash(hash) {
+        routerSuppressHashChange = true;
+        window.location.hash = hash;
+        // Allow hashchange listener to re-enable after current event loop
+        setTimeout(function () { routerSuppressHashChange = false; }, 0);
+    }
+
+    function navigateToList(query, page) {
+        query = query || '';
+        page = page || 1;
+        let hash = '#/';
+        if (query) {
+            hash = '#/search/' + encodeURIComponent(query);
+            if (page > 1) hash += '/page/' + page;
+        } else if (page > 1) {
+            hash = '#/page/' + page;
+        }
+        setHash(hash);
+        setSearchQuery(query);
+        $('#page-start').text(page);
+        refreshEmailList();
+        displayEmailList();
+    }
+
+    function navigateToEmail(emailId, tab) {
+        let hash = '#/email/' + encodeURIComponent(emailId);
+        if (tab) hash += '/' + tab;
+        setHash(hash);
+    }
+
+    function parseHash() {
+        const hash = window.location.hash || '#/';
+        const emailMatch = hash.match(/^#\/email\/([^/]+)(?:\/(.+))?$/);
+        if (emailMatch) {
+            return {
+                view: 'email',
+                emailId: decodeURIComponent(emailMatch[1]),
+                tab: emailMatch[2] || null,
+            };
+        }
+        const searchMatch = hash.match(/^#\/search\/([^/]+)(?:\/page\/(\d+))?$/);
+        if (searchMatch) {
+            return {
+                view: 'list',
+                query: decodeURIComponent(searchMatch[1]),
+                page: parseInt(searchMatch[2] || '1'),
+            };
+        }
+        const pageMatch = hash.match(/^#\/page\/(\d+)$/);
+        if (pageMatch) {
+            return { view: 'list', query: '', page: parseInt(pageMatch[1]) };
+        }
+        return { view: 'list', query: '', page: 1 };
+    }
+
+    function routeFromHash() {
+        const route = parseHash();
+        if (route.view === 'email') {
+            // Load email by ID via API
+            $.ajax({
+                url: '/api/emails/' + encodeURIComponent(route.emailId),
+                type: 'GET',
+                success: function (email) {
+                    updateEmailContent(email);
+                    if (route.tab) {
+                        // Switch to specific tab after content loads
+                        setTimeout(function () {
+                            const tabEl = $('[data-testid="email-body-version-tab-' + route.tab + '"]');
+                            if (tabEl.length) tabEl.click();
+                        }, 200);
+                    }
+                    displayEmailView();
+                },
+                error: function () {
+                    // Email not found — fall back to list
+                    navigateToList('', 1);
+                }
+            });
+        } else {
+            setSearchQuery(route.query);
+            $('#page-start').text(route.page);
+            refreshEmailList();
+            displayEmailList();
+        }
+    }
+
+    $(window).on('hashchange', function () {
+        if (!routerSuppressHashChange) {
+            routeFromHash();
+        }
+    });
+
+    // Initial route
     startPolling();
+    routeFromHash();
 
     $('.bi-arrow-left').click(function () {
-        displayEmailList();
+        // Go back to list with current search
+        const query = $('.search-box input').val() || '';
+        const page = parseInt($('#page-start').text()) || 1;
+        navigateToList(query, page);
     });
 
     $('[data-testid="email-view-release-button"]').click(function () {
@@ -351,19 +448,15 @@ $(function () {
     });
 
     $('#prev-page').click(function () {
-        // Decrement page number and refresh email list
         var page = parseInt($('#page-start').text());
-        console.log('Going to previous page');
-        $('#page-start').text(page - 1);
-        refreshEmailList();
+        var query = $('.search-box input').val() || '';
+        navigateToList(query, page - 1);
     });
 
     $('#next-page').click(function () {
-        // Increment page number and refresh email list
         var page = parseInt($('#page-start').text());
-        console.log('Going to next page');
-        $('#page-start').text(page + 1);
-        refreshEmailList();
+        var query = $('.search-box input').val() || '';
+        navigateToList(query, page + 1);
     });
 
     $('#deleteAll').click(function () {
@@ -587,13 +680,8 @@ $(function () {
     }
 
     function updateSearchBoxAndRefreshEmailList(query) {
-        // Update the search box and submit the form
-        console.log('Updating search box and submitting form');
-        suggestionDisplay.text(''); // MODIFIED
-        setSearchQuery(query);
-        resetCurrentPage()
-        refreshEmailList()
-        displayEmailList();
+        suggestionDisplay.text('');
+        navigateToList(query, 1);
     }
 
     function refreshEmailList() {
@@ -770,6 +858,9 @@ $(function () {
                 link.addClass('active');
             } else {
                 link.click(function () {
+                    // Update URL hash — omit tab if it's the default (best) version
+                    const bestTab = pickBestBodyVersion(bodyVersions);
+                    navigateToEmail(emailId, tabName === bestTab ? null : tabName);
                     updateEmailBodyVersions(bodyVersions, tabName, emailId);
                     if (tabName === 'headers') {
                         showRawHeaders(emailId);
@@ -1037,6 +1128,7 @@ $(function () {
             )
             .click(function () {
                 console.log('Displaying email ' + email.id);
+                navigateToEmail(email.id);
                 updateEmailContent(email);
                 displayEmailView();
             });
