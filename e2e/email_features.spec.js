@@ -114,6 +114,14 @@ test.describe('Email Feature Tests', () => {
     // Clicking it fetches the watch-html body and marks it active
     await inbox.emailView.bodyVersions.switchTo('watch-html');
     await expect(watchTab).toHaveClass(/active/);
+
+    // The watch-html body should render with actual content
+    const bodyText = await inbox.page.evaluate(() => {
+      const host = document.querySelector('.email-content');
+      return host?.shadowRoot?.textContent ?? '';
+    });
+    expect(bodyText).toContain('Watch HTML part');
+
     await screenshotLocator(inbox.emailView.locator, test.info(), 'screenshots/features-watch-html-tab.png');
   });
 

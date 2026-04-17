@@ -573,6 +573,51 @@ func TestMultipartAlternative(t *testing.T) {
 		}
 	})
 
+	t.Run("WatchHTML_BodyReturnsContent", func(t *testing.T) {
+		mp := loadTestEmail(t, filepath.Join(basePath, "alternative_with_watch_html.eml"))
+
+		// watch-html should be in body versions
+		versions := mp.GetBodyVersions()
+		found := false
+		for _, v := range versions {
+			if v == "watch-html" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("GetBodyVersions() = %v, want to include 'watch-html'", versions)
+		}
+
+		// GetBody("watch-html") should return the watch-html content
+		watchBody, err := mp.GetBody("watch-html")
+		if err != nil {
+			t.Errorf("GetBody(\"watch-html\") returned error: %v", err)
+		}
+		if watchBody == "" {
+			t.Error("GetBody(\"watch-html\") returned empty string")
+		}
+		if !strings.Contains(watchBody, "Watch HTML part") {
+			t.Errorf("GetBody(\"watch-html\") = %q, want to contain 'Watch HTML part'", watchBody)
+		}
+
+		// Other body versions should also work
+		htmlBody, err := mp.GetBody("html")
+		if err != nil {
+			t.Errorf("GetBody(\"html\") returned error: %v", err)
+		}
+		if !strings.Contains(htmlBody, "standard HTML part") {
+			t.Errorf("GetBody(\"html\") = %q, want to contain 'standard HTML part'", htmlBody)
+		}
+
+		plainBody, err := mp.GetBody("plain-text")
+		if err != nil {
+			t.Errorf("GetBody(\"plain-text\") returned error: %v", err)
+		}
+		if !strings.Contains(plainBody, "plain text part") {
+			t.Errorf("GetBody(\"plain-text\") = %q, want to contain 'plain text part'", plainBody)
+		}
+	})
+
 	// --- New feature tests ---
 
 	t.Run("GetAllHeaders_ReturnsDecodedHeaders", func(t *testing.T) {

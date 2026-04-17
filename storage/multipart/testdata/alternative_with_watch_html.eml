@@ -1,0 +1,19 @@
+From: sender@example.com
+To: receiver@example.com
+Subject: Alternative With Watch HTML
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="watchbound"
+
+--watchbound
+Content-Type: text/plain; charset="utf-8"
+
+This is the plain text part.
+--watchbound
+Content-Type: text/watch-html; charset="utf-8"
+
+<b>This is the Watch HTML part</b>
+--watchbound
+Content-Type: text/html; charset="utf-8"
+
+<p>This is the standard HTML part</p>
+--watchbound--

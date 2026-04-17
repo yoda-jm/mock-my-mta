@@ -344,8 +344,8 @@ func (mp Multipart) GetBody(bodyVersion string) (string, error) {
 			nodeContentType, _, _ := mime.ParseMediaType(getContentType(mn.headers))
 			if nodeContentType == "multipart/alternative" {
 				// Iterate parts of multipart/alternative to find the best match
-				var plainPart, htmlPart leafNode
-				var plainFound, htmlFound bool
+				var plainPart, htmlPart, watchHtmlPart leafNode
+				var plainFound, htmlFound, watchHtmlFound bool
 
 				for _, partNode := range mn.parts {
 					if partLeaf, isLeaf := partNode.(leafNode); isLeaf {
@@ -355,6 +355,9 @@ func (mp Multipart) GetBody(bodyVersion string) (string, error) {
 						if partLeaf.isPlainText() && !plainFound {
 							plainPart = partLeaf
 							plainFound = true
+						} else if partLeaf.isWatchHTML() && !watchHtmlFound {
+							watchHtmlPart = partLeaf
+							watchHtmlFound = true
 						} else if partLeaf.isHTML() && !htmlFound {
 							htmlPart = partLeaf
 							htmlFound = true
@@ -362,18 +365,28 @@ func (mp Multipart) GetBody(bodyVersion string) (string, error) {
 					}
 				}
 
-				if bodyVersion == "plain-text" && plainFound {
-					bodyContent = plainPart.GetDecodedBody()
-					foundBody = true
-					return stopWalk
-				} else if bodyVersion == "html" && htmlFound {
-					bodyContent = htmlPart.GetDecodedBody()
-					foundBody = true
-					return stopWalk
+				switch bodyVersion {
+				case "plain-text":
+					if plainFound {
+						bodyContent = plainPart.GetDecodedBody()
+						foundBody = true
+						return stopWalk
+					}
+				case "html":
+					if htmlFound {
+						bodyContent = htmlPart.GetDecodedBody()
+						foundBody = true
+						return stopWalk
+					}
+				case "watch-html":
+					if watchHtmlFound {
+						bodyContent = watchHtmlPart.GetDecodedBody()
+						foundBody = true
+						return stopWalk
+					}
 				}
-				// If requested version not found in this alternative, but other exists, stop for this alternative block.
-				// This prevents grabbing, for example, HTML from a parent if text/plain was requested in child alternative.
-				if plainFound || htmlFound {
+				// If any part was found in this alternative block, stop searching
+				if plainFound || htmlFound || watchHtmlFound {
 					return stopWalk
 				}
 			}
