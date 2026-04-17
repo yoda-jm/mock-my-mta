@@ -386,24 +386,61 @@ $(function () {
         });
     });
 
-    // ── Polling for new emails ──────────────────────────────────────────
+    // ── Real-time WebSocket notifications ─────────────────────────────
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = protocol + '//' + window.location.host + '/api/ws';
+        const ws = new WebSocket(wsUrl);
+
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            switch (data.type) {
+                case 'new_email':
+                    showPopup('New email received', 'info');
+                    refreshEmailList();
+                    break;
+                case 'delete_email':
+                    refreshEmailList();
+                    break;
+                case 'delete_all':
+                    refreshEmailList();
+                    break;
+            }
+        };
+
+        ws.onclose = function () {
+            // Reconnect after 3 seconds
+            setTimeout(connectWebSocket, 3000);
+        };
+
+        ws.onerror = function () {
+            ws.close();
+        };
+    }
+
     function startPolling() {
-        pollingInterval = setInterval(function () {
-            $.ajax({
-                url: '/api/emails/',
-                type: 'GET',
-                data: { page: 1 },
-                success: function (data) {
-                    const currentCount = data.pagination.total_matches;
-                    if (lastKnownEmailCount !== null && currentCount > lastKnownEmailCount) {
-                        const newCount = currentCount - lastKnownEmailCount;
-                        showPopup(newCount + ' new email' + (newCount > 1 ? 's' : '') + ' received', 'info');
-                        refreshEmailList();
+        // WebSocket is primary; polling is fallback
+        try {
+            connectWebSocket();
+        } catch (e) {
+            // Fallback to polling if WebSocket fails
+            pollingInterval = setInterval(function () {
+                $.ajax({
+                    url: '/api/emails/',
+                    type: 'GET',
+                    data: { page: 1 },
+                    success: function (data) {
+                        const currentCount = data.pagination.total_matches;
+                        if (lastKnownEmailCount !== null && currentCount > lastKnownEmailCount) {
+                            const newCount = currentCount - lastKnownEmailCount;
+                            showPopup(newCount + ' new email' + (newCount > 1 ? 's' : '') + ' received', 'info');
+                            refreshEmailList();
+                        }
+                        lastKnownEmailCount = currentCount;
                     }
-                    lastKnownEmailCount = currentCount;
-                }
-            });
-        }, 5000);
+                });
+            }, 5000);
+        }
     }
 
     // ── Bulk operations ──────────────────────────────────────────────────

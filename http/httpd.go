@@ -8,10 +8,13 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/pprof"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/microcosm-cc/bluemonday"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -81,6 +84,10 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/filters/suggestions", getFilterSuggestions).Methods("GET")
 	// Health and stats
 	apiRouter.HandleFunc("/health", s.getHealth).Methods("GET")
+	// WebSocket for real-time notifications
+	apiRouter.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		handleWebSocket(w, r)
+	})
 	// return error if the requested route is not found
 	apiRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusNotFound, "Not Found: %v", r.URL.Path)
@@ -243,6 +250,7 @@ func (s *Server) deleteEmailByID(w http.ResponseWriter, r *http.Request) {
 
 	// Write the response
 	w.WriteHeader(http.StatusNoContent)
+	BroadcastEvent("delete_email", map[string]string{"id": emailID})
 }
 
 type RelayData struct {
@@ -523,6 +531,7 @@ func (s *Server) deleteEmails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+	BroadcastEvent("delete_all", nil)
 }
 
 type BulkDeleteRequest struct {
@@ -680,12 +689,22 @@ func generateRequestID() string {
 	return uuid.New().String()
 }
 
-// sanitizeHTML removes script tags and event handler attributes from HTML.
-var scriptTagRegex = regexp.MustCompile(`(?i)<script[^>]*>[\s\S]*?</script>`)
-var eventHandlerRegex = regexp.MustCompile(`(?i)\s+on\w+\s*=\s*["'][^"']*["']`)
+// emailHTMLPolicy is a bluemonday policy that allows safe HTML for email display.
+// It permits standard formatting, images (for CID), links, and tables
+// while stripping scripts, event handlers, and other XSS vectors.
+var emailHTMLPolicy = func() *bluemonday.Policy {
+	p := bluemonday.UGCPolicy()
+	p.AllowImages()
+	p.AllowStyling()
+	p.AllowAttrs("style").Globally()
+	p.AllowAttrs("class").Globally()
+	p.AllowAttrs("width", "height", "alt", "title").OnElements("img")
+	p.AllowAttrs("bgcolor", "cellpadding", "cellspacing", "border", "align", "valign").OnElements("table", "tr", "td", "th")
+	p.AllowAttrs("colspan", "rowspan").OnElements("td", "th")
+	p.AllowURLSchemeWithCustomPolicy("cid", func(url *url.URL) bool { return true })
+	return p
+}()
 
 func sanitizeHTML(html string) string {
-	html = scriptTagRegex.ReplaceAllString(html, "")
-	html = eventHandlerRegex.ReplaceAllString(html, "")
-	return html
+	return emailHTMLPolicy.Sanitize(html)
 }

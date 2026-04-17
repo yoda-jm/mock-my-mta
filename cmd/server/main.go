@@ -77,6 +77,11 @@ func main() {
 	smtpServer := smtp.NewServer(config.Smtpd, storageEngine)
 	httpServer := mtahttp.NewServer(config.Httpd, config.Smtpd.Relays, storageEngine)
 
+	// Wire SMTP → WebSocket notification
+	smtpServer.SetOnNewEmail(func(emailID string) {
+		mtahttp.BroadcastEvent("new_email", map[string]string{"id": emailID})
+	})
+
 	go func() {
 		if err := smtpServer.ListenAndServe(); err != nil {
 			log.Logf(log.FATAL, "SMTP server error: %v", err)

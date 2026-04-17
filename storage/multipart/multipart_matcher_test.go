@@ -43,11 +43,14 @@ func TestMatch(t *testing.T) {
 		{"not-match-mailbox", mustParseQuery(t, "mailbox:unknown@example.com"), false},
 		// Attachment matchers
 		{"match-attachment", mustParseQuery(t, "has:attachment"), false},
-		// Plain text matchers
-		// FIXME: This is not working as expected
-		//{"match-plain-text", mustParseQuery(t, "important"), true},
-		//{"match-plain-text-quote", mustParseQuery(t, "\"important\""), true},
-		//{"not-match-plain-text", mustParseQuery(t, "unknown"), false},
+		// Plain text matchers (searches body, subject, from, recipients — case insensitive)
+		{"match-plain-text-body", mustParseQuery(t, "\"simple email\""), true},
+		{"match-plain-text-body-case", mustParseQuery(t, "\"SIMPLE EMAIL\""), true},
+		{"match-plain-text-body-single-word", mustParseQuery(t, "Hello"), true},
+		{"match-plain-text-subject", mustParseQuery(t, "\"subject of\""), true},
+		{"match-plain-text-from", mustParseQuery(t, "sender@example"), true},
+		{"match-plain-text-recipient", mustParseQuery(t, "to1@example"), true},
+		{"not-match-plain-text", mustParseQuery(t, "zzz_nonexistent_text"), false},
 		// Before matchers
 		{"match-before", mustParseQuery(t, "before:1979-11-04"), true},
 		{"not-match-before", mustParseQuery(t, "before:1979-11-02"), false},

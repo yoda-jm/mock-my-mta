@@ -2,10 +2,18 @@ package smtp
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
+	"math/big"
 	"net"
 	"net/mail"
 	"net/smtp"
+	"time"
 
 	"github.com/chrj/smtpd"
 
@@ -18,6 +26,12 @@ type Server struct {
 	configuration Configuration
 
 	storageEngine storage.StorageService
+	onNewEmail    func(emailID string) // callback for WebSocket notifications
+}
+
+// SetOnNewEmail registers a callback invoked when a new email is stored.
+func (s *Server) SetOnNewEmail(fn func(emailID string)) {
+	s.onNewEmail = fn
 }
 
 func NewServer(config Configuration, storageEngine storage.StorageService) *Server {
@@ -25,13 +39,19 @@ func NewServer(config Configuration, storageEngine storage.StorageService) *Serv
 		configuration: config,
 		storageEngine: storageEngine,
 	}
+	tlsConfig := generateSelfSignedTLS()
+
 	s.server = &smtpd.Server{
-		WelcomeMessage:    "FAKE SMTPD GO",
+		WelcomeMessage:    "MockMyMTA ESMTP ready",
+		Hostname:          "localhost",
 		Handler:           s.handler,
 		ConnectionChecker: s.connectionChecker,
 		HeloChecker:       s.heloChecker,
 		SenderChecker:     s.senderChecker,
 		RecipientChecker:  s.recipientChecker,
+		TLSConfig:         tlsConfig,
+		ForceTLS:          false, // STARTTLS available but not required
+		Authenticator:     s.authenticator,
 	}
 	return s
 }
@@ -61,6 +81,13 @@ func (s *Server) heloChecker(peer smtpd.Peer, name string) error {
 	return nil
 }
 
+// authenticator accepts any username/password combination.
+// This is a mock server — authentication always succeeds.
+func (s *Server) authenticator(peer smtpd.Peer, username string, password string) error {
+	log.Logf(log.DEBUG, "AUTH from %v: user=%v (accepted)", peer.Addr, username)
+	return nil
+}
+
 func (s *Server) connectionChecker(peer smtpd.Peer) error {
 	log.Logf(log.DEBUG, "new connection from %v", peer.Addr)
 	return nil
@@ -79,6 +106,10 @@ func (s *Server) handler(peer smtpd.Peer, env smtpd.Envelope) error {
 	uuid, err := s.storageEngine.Set(message)
 	if err != nil {
 		return err
+	}
+	// Notify connected WebSocket clients
+	if s.onNewEmail != nil {
+		s.onNewEmail(uuid)
 	}
 	for _, relayConfiguration := range s.configuration.Relays {
 		switch {
@@ -165,4 +196,41 @@ func (l *loginAuth) Start(server *smtp.ServerInfo) (proto string, toServer []byt
 
 func newLoginAuth(username, password string) smtp.Auth {
 	return &loginAuth{username, password}
+}
+
+// generateSelfSignedTLS creates a self-signed TLS certificate for STARTTLS.
+// The certificate is generated in memory — no files written to disk.
+func generateSelfSignedTLS() *tls.Config {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		log.Logf(log.ERROR, "failed to generate TLS key: %v", err)
+		return nil
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "MockMyMTA"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour), // 10 years
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	if err != nil {
+		log.Logf(log.ERROR, "failed to generate TLS certificate: %v", err)
+		return nil
+	}
+
+	cert := tls.Certificate{
+		Certificate: [][]byte{certDER},
+		PrivateKey:  key,
+	}
+
+	log.Logf(log.INFO, "generated self-signed TLS certificate for STARTTLS")
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
 }

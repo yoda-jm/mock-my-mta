@@ -1,7 +1,6 @@
 package multipart
 
 import (
-	"log"
 	"mock-my-mta/storage/matcher"
 	"strings"
 	"time"
@@ -20,28 +19,29 @@ func (multipart Multipart) match(m interface{}) bool {
 	case matcher.AttachmentMatch:
 		return multipart.HasAttachments()
 	case matcher.PlainTextMatch:
-		// check if the body contains the string
+		searchText := strings.ToLower(mt.GetText())
+		// check if the body contains the string (case insensitive)
 		bodyVersions := multipart.GetBodyVersions()
 		for _, bodyVersion := range bodyVersions {
 			body, err := multipart.GetBody(bodyVersion)
 			if err != nil {
 				continue
 			}
-			if strings.Contains(body, mt.GetText()) {
+			if strings.Contains(strings.ToLower(body), searchText) {
 				return true
 			}
 		}
 		// check if the subject contains the string
-		if strings.Contains(multipart.GetSubject(), mt.GetText()) {
+		if strings.Contains(strings.ToLower(multipart.GetSubject()), searchText) {
 			return true
 		}
 		// check if the from contains the string
-		if strings.Contains(multipart.GetFrom().Address, mt.GetText()) {
+		if strings.Contains(strings.ToLower(multipart.GetFrom().Address), searchText) {
 			return true
 		}
 		// check if the recipients contain the string
-		for _, recipent := range multipart.GetRecipients() {
-			if strings.Contains(recipent.Address, mt.GetText()) {
+		for _, recipient := range multipart.GetRecipients() {
+			if strings.Contains(strings.ToLower(recipient.Address), searchText) {
 				return true
 			}
 		}
@@ -79,7 +79,7 @@ func (multipart Multipart) match(m interface{}) bool {
 		}
 		return false
 	default:
-		log.Fatalf("Unknown matcher type: %T", m)
+		// Unknown matcher type — skip rather than crash
 		return false
 	}
 }
