@@ -353,6 +353,26 @@ test.describe('Email Feature Tests', () => {
     expect(hash).toBe('#/');
   });
 
+  // ── Wait-for-email API ─────────────────────────────────────────────────
+
+  test('waitForEmail API — immediate match returns email', async () => {
+    // The test data already has an email from uniquesender@filter-test.net
+    const email = await inbox.waitForEmail('from:uniquesender@filter-test.net', '5s');
+    expect(email.id).toBeTruthy();
+    expect(email.from.address).toBe('uniquesender@filter-test.net');
+  });
+
+  test('waitForEmail API — timeout returns error', async () => {
+    let error;
+    try {
+      await inbox.waitForEmail('from:zzz_never_exists@nowhere.test', '1s');
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeDefined();
+    expect(error.message).toContain('408');
+  });
+
   // ── Slightly destructive (single delete) — placed last ──────────────────
 
   test('Delete from email view — removes email and returns to list', async () => {

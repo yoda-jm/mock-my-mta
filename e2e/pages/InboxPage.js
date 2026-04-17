@@ -40,6 +40,24 @@ class InboxPage {
     await this.page.goto('/');
     await this.page.waitForSelector('[data-testid="email-list-body"]');
   }
+
+  /**
+   * Call the wait-for-email API endpoint.
+   * Returns the matched email header or throws on timeout.
+   *
+   * @param {string} query   Search query (same syntax as the search box)
+   * @param {string} timeout Duration string (e.g. '5s', '30s')
+   * @returns {Promise<object>} The matched EmailHeader JSON
+   */
+  async waitForEmail(query, timeout = '10s') {
+    const baseUrl = this.page.url().replace(/#.*$/, '').replace(/\/$/, '');
+    const url = `${baseUrl}/api/emails/wait?query=${encodeURIComponent(query)}&timeout=${timeout}`;
+    const response = await this.page.request.get(url);
+    if (!response.ok()) {
+      throw new Error(`waitForEmail failed (${response.status()}): ${await response.text()}`);
+    }
+    return response.json();
+  }
 }
 
 module.exports = { InboxPage };
