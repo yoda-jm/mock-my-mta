@@ -7,6 +7,17 @@ import (
 	"time"
 )
 
+// newTestEngine creates an Engine with all layers assigned to all scopes.
+func newTestEngine(layers ...storageLayer) *Engine {
+	return &Engine{
+		allLayers:    layers,
+		readLayers:   layers,
+		searchLayers: layers,
+		writeLayers:  layers,
+		rawLayers:    layers,
+	}
+}
+
 func TestUnimplementedMethodInLayerError(t *testing.T) {
 	// check that error message contains the method name and the layer name
 	err := newUnimplementedMethodInLayerError("my-method", "my-layer")
@@ -69,21 +80,21 @@ func TestNewEngineOneStorageLayer(t *testing.T) {
 			t.Errorf("Unexpected error: %v", err)
 		}
 		// check that there is exactly one storage layer
-		if len(engine.storages) != 1 {
-			t.Errorf("Expected exactly one storage layer, got %v", len(engine.storages))
+		if len(engine.allLayers) != 1 {
+			t.Errorf("Expected exactly one storage layer, got %v", len(engine.allLayers))
 		}
 		// check that the storage layer is of the correct type
 		storageLayerConfiguration := storageConfiguration[0]
 		switch storageLayerConfiguration.Type {
 		case "MEMORY":
 			// check that the storage layer is of the correct type
-			if _, ok := engine.storages[0].(*memoryStorage); !ok {
-				t.Errorf("Expected MemoryStorage, got %T", engine.storages[0])
+			if _, ok := engine.allLayers[0].(*memoryStorage); !ok {
+				t.Errorf("Expected MemoryStorage, got %T", engine.allLayers[0])
 			}
 		case "SQLITE":
 			// check that the storage layer is of the correct type
-			if storage, ok := engine.storages[0].(*sqliteStorage); !ok {
-				t.Errorf("Expected SqliteStorage, got %T", engine.storages[0])
+			if storage, ok := engine.allLayers[0].(*sqliteStorage); !ok {
+				t.Errorf("Expected SqliteStorage, got %T", engine.allLayers[0])
 			} else {
 				// check that the database file is correct
 				if storage.databaseFilename != storageLayerConfiguration.Parameters["database"] {
@@ -92,8 +103,8 @@ func TestNewEngineOneStorageLayer(t *testing.T) {
 			}
 		case "FILESYSTEM":
 			// check that the storage layer is of the correct type
-			if storage, ok := engine.storages[0].(*filesystemStorage); !ok {
-				t.Errorf("Expected FilesystemStorage, got %T", engine.storages[0])
+			if storage, ok := engine.allLayers[0].(*filesystemStorage); !ok {
+				t.Errorf("Expected FilesystemStorage, got %T", engine.allLayers[0])
 			} else {
 				// check that the folder is correct
 				if storage.folder != storageLayerConfiguration.Parameters["folder"] {
@@ -108,15 +119,13 @@ func TestNewEngineOneStorageLayer(t *testing.T) {
 
 func TestEngineSetWithNoDate(t *testing.T) {
 	// Test that Engine.Set calls the correct method in the storage layer
-	engine := &Engine{
-		storages: []storageLayer{newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))},
-	}
+	engine := newTestEngine(newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods)))
 	_, err := engine.Set(&mail.Message{Header: mail.Header{}})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	// check that the correct method has been called
-	mockStorageLayer := engine.storages[0].(*mockStorageLayer)
+	mockStorageLayer := engine.allLayers[0].(*mockStorageLayer)
 	if _, found := mockStorageLayer.calls["setWithID"]; !found {
 		t.Errorf("Expected setWithID to be called")
 	}
@@ -147,16 +156,14 @@ func TestEngineSetWithNoDate(t *testing.T) {
 
 func TestEngineSetWithDate(t *testing.T) {
 	// Test that Engine.Set calls the correct method in the storage layer
-	engine := &Engine{
-		storages: []storageLayer{newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))},
-	}
+	engine := newTestEngine(newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods)))
 	date := time.Now()
 	_, err := engine.Set(&mail.Message{Header: mail.Header{"Date": []string{date.Format(time.RFC1123Z)}}})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	// check that the correct method has been called
-	mockStorageLayer := engine.storages[0].(*mockStorageLayer)
+	mockStorageLayer := engine.allLayers[0].(*mockStorageLayer)
 	if _, found := mockStorageLayer.calls["setWithID"]; !found {
 		t.Errorf("Expected setWithID to be called")
 	}
@@ -182,15 +189,13 @@ func TestEngineSetWithDate(t *testing.T) {
 
 func TestEngineSetWithInvalidDate(t *testing.T) {
 	// Test that Engine.Set set current date when the date is invalid
-	engine := &Engine{
-		storages: []storageLayer{newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))},
-	}
+	engine := newTestEngine(newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods)))
 	_, err := engine.Set(&mail.Message{Header: mail.Header{"Date": []string{"invalid-date"}}})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	// check that the correct method has been called
-	mockStorageLayer := engine.storages[0].(*mockStorageLayer)
+	mockStorageLayer := engine.allLayers[0].(*mockStorageLayer)
 	if _, found := mockStorageLayer.calls["setWithID"]; !found {
 		t.Errorf("Expected setWithID to be called")
 	}
@@ -246,18 +251,18 @@ func TestNewEngineThreeStorageLayers(t *testing.T) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 	// check that there are three storage layers
-	if len(engine.storages) != 3 {
-		t.Errorf("Expected three storage layers, got %v", len(engine.storages))
+	if len(engine.allLayers) != 3 {
+		t.Errorf("Expected three storage layers, got %v", len(engine.allLayers))
 	}
 	// check that the storage layers are of the correct type
-	if _, ok := engine.storages[0].(*memoryStorage); !ok {
-		t.Errorf("Expected MemoryStorage, got %T", engine.storages[0])
+	if _, ok := engine.allLayers[0].(*memoryStorage); !ok {
+		t.Errorf("Expected MemoryStorage, got %T", engine.allLayers[0])
 	}
-	if _, ok := engine.storages[1].(*sqliteStorage); !ok {
-		t.Errorf("Expected SqliteStorage, got %T", engine.storages[1])
+	if _, ok := engine.allLayers[1].(*sqliteStorage); !ok {
+		t.Errorf("Expected SqliteStorage, got %T", engine.allLayers[1])
 	}
-	if _, ok := engine.storages[2].(*filesystemStorage); !ok {
-		t.Errorf("Expected FilesystemStorage, got %T", engine.storages[2])
+	if _, ok := engine.allLayers[2].(*filesystemStorage); !ok {
+		t.Errorf("Expected FilesystemStorage, got %T", engine.allLayers[2])
 	}
 }
 
@@ -371,9 +376,7 @@ func TestMockStorageLayerEngineOneLayer(t *testing.T) {
 	}
 	for _, mockConfiguration := range mockConfigurations {
 		mockStorageLayer := newMockStorageLayer(mockConfiguration.unimplementedCalls)
-		engine := &Engine{
-			storages: []storageLayer{mockStorageLayer},
-		}
+		engine := newTestEngine(mockStorageLayer)
 		errors := executeAllEngineMethods(engine)
 		// check that all methods have been called
 		for _, methodName := range getAllMethods() {
@@ -410,9 +413,7 @@ func TestMockStorageLayerEngineTwoLayersFullDefaulting(t *testing.T) {
 	// Test that the mock storage layer is correctly used in the engine
 	layer1 := newMockStorageLayer(getMockConfiguration(mockConfigurationTypeAllUnimplementedMethods))
 	layer2 := newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))
-	engine := &Engine{
-		storages: []storageLayer{layer1, layer2},
-	}
+	engine := newTestEngine(layer1, layer2)
 
 	errors := executeAllEngineMethods(engine)
 	for _, methodName := range getAllMethods() {
@@ -444,9 +445,7 @@ func TestMockStorageLayerEngineTwoLayersNoDefaulting(t *testing.T) {
 	// Test that the mock storage layer is correctly used in the engine
 	layer1 := newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))
 	layer2 := newMockStorageLayer(getMockConfiguration(mockConfigurationTypeNoUnimplementedMethods))
-	engine := &Engine{
-		storages: []storageLayer{layer1, layer2},
-	}
+	engine := newTestEngine(layer1, layer2)
 
 	errors := executeAllEngineMethods(engine)
 	for _, methodName := range getAllMethods() {

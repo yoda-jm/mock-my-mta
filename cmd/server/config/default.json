@@ -18,16 +18,12 @@
 	},
 	"storages": [
 		{
-			"type": "SQLITE",
-			"parameters": {
-				"database": "mock-my-mta.db"
-			}
-		},
-		{
-			"type": "MEMORY"
+			"type": "MEMORY",
+			"scope": ["read", "cache"]
 		},
 		{
 			"type": "FILESYSTEM",
+			"scope": ["all"],
 			"parameters": {
 				"folder": "new-data",
 				"type": "eml"
