@@ -48,9 +48,13 @@ MockMyMTA is a single Go binary that runs an SMTP server on port 1025 and a web 
 - `GET /api/emails/{id}/headers` — all decoded headers
 - `GET /api/emails/{id}/download` — raw .eml download
 - `GET /api/emails/{id}/mime-tree` — MIME structure
+- `GET /api/emails/wait?query=...&timeout=30s` — **wait-for-email** (long-poll until match)
+- `GET /api/stats` — email count, uptime, server info
+- `GET /api/health` — health check
 - `GET /api/ws` — WebSocket for real-time events
 - Bulk delete/relay endpoints
 - XSS-safe HTML body serving (bluemonday sanitization)
+- **Deep link URLs** — shareable hash-based URLs for searches, emails, and tabs
 
 ### Storage
 - **Multi-layer, scope-routed architecture** ([design doc](docs/storage-layer-design.md))
@@ -60,8 +64,8 @@ MockMyMTA is a single Go binary that runs an SMTP server on port 1025 and a web 
 - Configurable per-operation routing (read, search, write, raw, cache)
 
 ### Testing
-- **45 Playwright e2e tests** with screenshots in the report
-- **80+ Go unit tests** across 9 test files
+- **55 Playwright e2e tests** with screenshots in the report
+- **90+ Go unit tests** across 9 test files
 - Docker-based test execution
 - GitHub Actions CI with Playwright report deployed to GitHub Pages
 
@@ -107,15 +111,27 @@ Point your app's SMTP config at `localhost:1025` during local development. Every
 
 ### E2E Testing with Playwright
 ```javascript
-// Send email via your app, then verify it was captured:
-const response = await request.get('http://localhost:8025/api/emails/?query=subject:Welcome');
-const data = await response.json();
-expect(data.emails.length).toBe(1);
-expect(data.emails[0].subject).toContain('Welcome');
+// Wait for an email to arrive (no sleep needed!):
+const result = await inbox.waitForEmail('subject:Welcome', '30s');
+expect(result.email.subject).toContain('Welcome');
+expect(result.total_matches).toBe(1);
+
+// Navigate directly to view it:
+await inbox.gotoEmail(result.email.id);
+
+// Or use the REST API directly:
+const resp = await fetch('http://localhost:8025/api/emails/wait?query=subject:Welcome&timeout=30s');
+const data = await resp.json();
+console.log(data.url); // http://localhost:8025/#/email/2024-...
 ```
 
 ### CI/CD Pipeline
-Add MockMyMTA as a service in your CI pipeline. Run your test suite, then query the API to verify emails were sent correctly.
+Add MockMyMTA as a service in your CI pipeline. Use the **wait-for-email API** to block until expected emails arrive — no `sleep()` needed.
+
+```bash
+# Wait up to 30s for the welcome email, get its URL:
+curl -s "http://localhost:8025/api/emails/wait?query=subject:Welcome&timeout=30s" | jq .url
+```
 
 ### QA Testing
 QA team can inspect captured emails in the web UI — check HTML rendering, verify links, download attachments — without any email actually being delivered.
