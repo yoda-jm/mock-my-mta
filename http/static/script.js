@@ -364,6 +364,13 @@ $(function () {
         $('.email-view').show();
     }
 
+    function resetReleaseModal() {
+        $('#senderOriginal').prop('checked', true);
+        $('#receiversOriginal').prop('checked', true);
+        $('#overrideSender').prop('disabled', true).val('');
+        $('#overrideReceivers').prop('disabled', true).val('');
+    }
+
     function displayReleaseModal(emailId) {
         $.ajax({
             url: '/api/emails/' + emailId + '/relay',
@@ -372,6 +379,8 @@ $(function () {
                 // log data
                 console.log(data);
                 const modal = $('#releaseEmailModal');
+                // Reset modal state
+                resetReleaseModal();
                 // fill the modal with the data
                 $('#emailId').val(emailId);
                 $('#originalSender').val(data.sender.address);
@@ -382,47 +391,53 @@ $(function () {
                     var configName = data.relay_names[i];
                     $('#relayConfig').append($('<option>').val(configName).text(configName));
                 }
+                // Restore the single-email click handler (bulk release may have replaced it)
+                bindSingleReleaseHandler();
                 // display modal
                 modal.modal('show');
             },
         });
     }
 
-    $('#releaseEmailButton').on('click', function() {
-        var emailId = $('#emailId').val();
-        var relayName = $('#relayConfig').val();
-        var sender = '';
-        if ($('#senderOverride').is(':checked')) {
-            sender = $('#overrideSender').val();
-        } else {
-            sender = $('#originalSender').val();
-        }
-        var recipients = [];
-        if ($('#receiversOverride').is(':checked')) {
-            recipients = $('#overrideReceivers').val().split(',').map(function (recipient) { return recipient.trim(); });
-        } else {
-            recipients = $('#originalReceivers').val().split(',').map(function (recipient) { return recipient.trim(); });
-        }
-        var formData = {
-            relay_name: relayName,
-            sender: sender,
-            recipients: recipients
-        };
-        $.ajax({
-            url: '/api/emails/' + emailId + '/relay',
-            type: 'POST',
-            data: JSON.stringify(formData),
-            success: function (data) {
-                // log data
-                console.log(data);
-                // close the modal
-                $('#releaseEmailModal').modal('hide');
-            },
-            error: function (jqXHR, textStatus, errorThrown ) {
-                showPopup(jqXHR.responseText, 'error');
+    function bindSingleReleaseHandler() {
+        $('#releaseEmailButton').off('click').on('click', function() {
+            var emailId = $('#emailId').val();
+            var relayName = $('#relayConfig').val();
+            var sender = '';
+            if ($('#senderOverride').is(':checked')) {
+                sender = $('#overrideSender').val();
+            } else {
+                sender = $('#originalSender').val();
             }
+            var recipients = [];
+            if ($('#receiversOverride').is(':checked')) {
+                recipients = $('#overrideReceivers').val().split(',').map(function (recipient) { return recipient.trim(); });
+            } else {
+                recipients = $('#originalReceivers').val().split(',').map(function (recipient) { return recipient.trim(); });
+            }
+            var formData = {
+                relay_name: relayName,
+                sender: sender,
+                recipients: recipients
+            };
+            $.ajax({
+                url: '/api/emails/' + emailId + '/relay',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function (data) {
+                    // log data
+                    console.log(data);
+                    // close the modal
+                    $('#releaseEmailModal').modal('hide');
+                },
+                error: function (jqXHR, textStatus, errorThrown ) {
+                    showPopup(jqXHR.responseText, 'error');
+                }
+            });
         });
-    });
+    }
+    bindSingleReleaseHandler();
 
     // Enable/Disable override sender input based on radio selection
     $('input[name="senderOption"]').on('change', function() {
@@ -717,6 +732,7 @@ $(function () {
             type: 'GET',
             success: function (data) {
                 const modal = $('#releaseEmailModal');
+                resetReleaseModal();
                 $('#emailId').val(selectedEmailIds.size + ' emails selected');
                 $('#originalSender').val(data.sender.address);
                 $('#originalReceivers').val(data.recipients.map(r => r.address).join(', '));

@@ -630,6 +630,56 @@ func TestBulkMarkUnread_MalformedJSON(t *testing.T) {
 	}
 }
 
+func TestRewriteSenderHeader_Success(t *testing.T) {
+	raw := []byte("From: original@test.com\r\nTo: rcpt@test.com\r\nSubject: Test\r\n\r\nBody here")
+	result := rewriteSenderHeader(raw, "override@test.com")
+	s := string(result)
+
+	if !strings.Contains(s, "From: override@test.com") {
+		t.Errorf("expected From header rewritten, got %q", s)
+	}
+	if !strings.Contains(s, "Subject: Test") {
+		t.Errorf("expected Subject header preserved, got %q", s)
+	}
+	if !strings.Contains(s, "Body here") {
+		t.Errorf("expected body preserved, got %q", s)
+	}
+}
+
+func TestRewriteSenderHeader_ToHeaderPreserved(t *testing.T) {
+	raw := []byte("From: a@b.com\r\nTo: original-rcpt@b.com\r\n\r\nBody")
+	result := rewriteSenderHeader(raw, "new@b.com")
+	s := string(result)
+
+	// To header must remain unchanged
+	if !strings.Contains(s, "To: original-rcpt@b.com") {
+		t.Errorf("expected To header preserved, got %q", s)
+	}
+}
+
+func TestRewriteSenderHeader_EmptySenderKeepsOriginal(t *testing.T) {
+	raw := []byte("From: keep@test.com\r\nTo: rcpt@test.com\r\n\r\nBody")
+	result := rewriteSenderHeader(raw, "")
+	s := string(result)
+
+	if !strings.Contains(s, "From: keep@test.com") {
+		t.Errorf("expected original From preserved when sender is empty, got %q", s)
+	}
+}
+
+func TestRewriteSenderHeader_BodyNotCorrupted(t *testing.T) {
+	raw := []byte("From: a@b.com\r\nTo: c@d.com\r\n\r\nFrom: this is body text not a header")
+	result := rewriteSenderHeader(raw, "new@b.com")
+	s := string(result)
+
+	if !strings.Contains(s, "From: new@b.com") {
+		t.Errorf("expected From header rewritten, got %q", s)
+	}
+	if !strings.Contains(s, "From: this is body text not a header") {
+		t.Errorf("expected body From line preserved, got %q", s)
+	}
+}
+
 func TestGetStats(t *testing.T) {
 	store := newMockStorage()
 	store.emails["e1"] = storage.EmailHeader{ID: "e1", Subject: "Test"}

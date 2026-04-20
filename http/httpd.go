@@ -2,12 +2,16 @@ package http
 
 import (
 	"context"
+	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/pprof"
+	"net/mail"
+	"net/textproto"
 	"net/url"
 	"os"
 	"regexp"
@@ -325,19 +329,23 @@ func (s *Server) relayMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the email by ID
-	rawData, err := s.store.GetBodyVersion(emailID, storage.EmailVersionRaw)
+	// Get the raw email
+	rawEmail, err := s.store.GetRawEmail(emailID)
 	if err != nil {
 		writeErrorResponse(w, http.StatusInternalServerError, "cannot get email (id=%v): %v", emailID, err)
 		return
 	}
+
+	// Rewrite From/To headers in the raw message to match the overrides,
+	// because mail servers like Office 365 check message headers, not just the SMTP envelope.
+	data := rewriteSenderHeader(rawEmail, request.Sender)
 
 	// Relay the message
 	logf(generateRequestID(), r, log.INFO, "relaying message to %v", relayConfig.Addr)
 	envelope := smtp.Envelope{
 		Sender:     request.Sender,
 		Recipients: request.Recipients,
-		Data:       []byte(rawData),
+		Data:       data,
 	}
 
 	err = smtp.RelayMessage(relayConfig, emailID, envelope)
@@ -602,15 +610,16 @@ func (s *Server) bulkRelayEmails(w http.ResponseWriter, r *http.Request) {
 
 	result := BulkResult{}
 	for _, id := range request.IDs {
-		rawData, err := s.store.GetBodyVersion(id, storage.EmailVersionRaw)
+		rawEmail, err := s.store.GetRawEmail(id)
 		if err != nil {
 			result.Failed = append(result.Failed, id)
 			continue
 		}
+		data := rewriteSenderHeader(rawEmail, request.Sender)
 		envelope := smtp.Envelope{
 			Sender:     request.Sender,
 			Recipients: request.Recipients,
-			Data:       []byte(rawData),
+			Data:       data,
 		}
 		if err := smtp.RelayMessage(relayConfig, id, envelope); err != nil {
 			result.Failed = append(result.Failed, id)
@@ -866,6 +875,85 @@ var emailHTMLPolicy = func() *bluemonday.Policy {
 	p.AllowURLSchemeWithCustomPolicy("cid", func(url *url.URL) bool { return true })
 	return p
 }()
+
+// rewriteSenderHeader parses a raw email and replaces the From header so that
+// relay servers (e.g. Office 365) that check the message header against the
+// authenticated SMTP user don't reject with SendAsDenied.
+// Only the From header is rewritten — To is left unchanged to preserve the
+// original recipient display for the person reading the email.
+func rewriteSenderHeader(raw []byte, sender string) []byte {
+	if sender == "" {
+		return raw
+	}
+	msg, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		// If parsing fails, return the original message unchanged.
+		return raw
+	}
+
+	msg.Header[textproto.CanonicalMIMEHeaderKey("From")] = []string{sender}
+
+	// Re-serialize: headers + blank line + body
+	var buf bytes.Buffer
+	// Write headers in their original order by iterating the raw header keys.
+	// net/mail.Header is a map so order is not guaranteed; re-parse to preserve order.
+	writeHeaders(&buf, msg.Header, raw)
+	buf.WriteString("\r\n")
+	body, _ := io.ReadAll(msg.Body)
+	buf.Write(body)
+
+	return buf.Bytes()
+}
+
+// writeHeaders writes email headers to buf, preserving the key order from the
+// original raw message while using the (possibly modified) values from hdr.
+func writeHeaders(buf *bytes.Buffer, hdr mail.Header, raw []byte) {
+	// Parse original header order from raw bytes
+	seen := map[string]bool{}
+	rawStr := string(raw)
+	var headerBlock string
+	if idx := strings.Index(rawStr, "\r\n\r\n"); idx >= 0 {
+		headerBlock = rawStr[:idx]
+	} else if idx := strings.Index(rawStr, "\n\n"); idx >= 0 {
+		headerBlock = rawStr[:idx]
+	} else {
+		headerBlock = rawStr
+	}
+
+	var orderedKeys []string
+	for _, line := range strings.Split(headerBlock, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if len(line) == 0 {
+			break
+		}
+		// Continuation lines start with whitespace
+		if line[0] == ' ' || line[0] == '\t' {
+			continue
+		}
+		if idx := strings.IndexByte(line, ':'); idx > 0 {
+			key := textproto.CanonicalMIMEHeaderKey(line[:idx])
+			if !seen[key] {
+				seen[key] = true
+				orderedKeys = append(orderedKeys, key)
+			}
+		}
+	}
+
+	// Write headers in original order
+	for _, key := range orderedKeys {
+		for _, val := range hdr[key] {
+			fmt.Fprintf(buf, "%s: %s\r\n", key, val)
+		}
+	}
+	// Write any new headers not in the original (unlikely but safe)
+	for key, vals := range hdr {
+		if !seen[key] {
+			for _, val := range vals {
+				fmt.Fprintf(buf, "%s: %s\r\n", key, val)
+			}
+		}
+	}
+}
 
 func sanitizeHTML(html string) string {
 	return emailHTMLPolicy.Sanitize(html)

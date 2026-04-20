@@ -190,6 +190,64 @@ test.describe('Email Feature Tests', () => {
     await expect(inbox.releaseModal.locator).toBeHidden();
   });
 
+  test('Release modal — override values are sent in the relay request', async () => {
+    await expect(inbox.emailList.firstRow().releaseButton).toBeVisible({ timeout: 10000 });
+    await inbox.emailList.firstRow().openReleaseModal();
+    await expect(inbox.releaseModal.locator).toBeVisible();
+
+    // Enable sender override and fill in a custom sender
+    const senderOverrideRadio = inbox.releaseModal.locator.locator(
+      '[data-testid="release-modal-sender-override-radio"]'
+    );
+    await senderOverrideRadio.click();
+    await inbox.releaseModal.overrideSenderInput.fill('override-sender@test.com');
+
+    // Enable receiver override and fill in a custom receiver
+    const receiversOverrideRadio = inbox.releaseModal.locator.locator(
+      '[data-testid="release-modal-receivers-override-radio"]'
+    );
+    await receiversOverrideRadio.click();
+    await inbox.releaseModal.overrideReceiversInput.fill('override-receiver@test.com');
+
+    // Intercept the relay POST request to verify the submitted values
+    const relayRequest = inbox.page.waitForRequest(r =>
+      r.url().includes('/relay') && r.method() === 'POST'
+    );
+    await inbox.releaseModal.releaseButton.click();
+    const req = await relayRequest;
+    const body = req.postDataJSON();
+
+    expect(body.sender).toBe('override-sender@test.com');
+    expect(body.recipients).toEqual(['override-receiver@test.com']);
+  });
+
+  test('Release modal — resets to original on re-open', async () => {
+    await expect(inbox.emailList.firstRow().releaseButton).toBeVisible({ timeout: 10000 });
+
+    // First open: toggle overrides
+    await inbox.emailList.firstRow().openReleaseModal();
+    await expect(inbox.releaseModal.locator).toBeVisible();
+
+    const senderOverrideRadio = inbox.releaseModal.locator.locator(
+      '[data-testid="release-modal-sender-override-radio"]'
+    );
+    await senderOverrideRadio.click();
+    await inbox.releaseModal.overrideSenderInput.fill('leftover@test.com');
+    await inbox.releaseModal.close();
+    await expect(inbox.releaseModal.locator).toBeHidden();
+
+    // Second open: overrides should be reset to original
+    await inbox.emailList.firstRow().openReleaseModal();
+    await expect(inbox.releaseModal.locator).toBeVisible();
+
+    await expect(inbox.releaseModal.overrideSenderInput).toBeDisabled();
+    await expect(inbox.releaseModal.overrideSenderInput).toHaveValue('');
+    await expect(inbox.releaseModal.overrideReceiversInput).toBeDisabled();
+    await expect(inbox.releaseModal.overrideReceiversInput).toHaveValue('');
+
+    await inbox.releaseModal.close();
+  });
+
   // ── Search filter operators ───────────────────────────────────────────────
 
   test('has:attachment filter — returns only emails with attachments', async () => {
