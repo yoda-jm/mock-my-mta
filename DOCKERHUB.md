@@ -3,7 +3,7 @@
 A lightweight, local SMTP mock server for capturing and inspecting emails during development and testing.
 
 [![GitHub](https://img.shields.io/badge/GitHub-yoda--jm%2Fmock--my--mta-blue?logo=github)](https://github.com/yoda-jm/mock-my-mta)
-[![E2E Tests](https://img.shields.io/badge/tests-55%20e2e%20%2B%2090%2B%20unit-brightgreen)](https://github.com/yoda-jm/mock-my-mta/actions)
+[![E2E Tests](https://img.shields.io/badge/tests-58%20e2e%20%2B%2090%2B%20unit-brightgreen)](https://github.com/yoda-jm/mock-my-mta/actions)
 
 ## What is MockMyMTA?
 

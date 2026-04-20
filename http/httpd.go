@@ -144,6 +144,8 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 			w.Header().Set("Content-Type", "application/javascript")
 		case "json":
 			w.Header().Set("Content-Type", "application/json")
+		case "svg":
+			w.Header().Set("Content-Type", "image/svg+xml")
 		default:
 			w.Header().Set("Content-Type", http.DetectContentType(content))
 		}

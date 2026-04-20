@@ -36,7 +36,7 @@ MockMyMTA is a single Go binary that runs an SMTP server on port 1025 and a web 
 - **MIME structure tree** with inline preview for CID images
 - **Attachment list** with download links
 - **.eml file download** for any captured email
-- **Bulk select/delete/relay** with confirmation dialogs
+- **Bulk select/delete/relay/mark read/unread** with confirmation dialogs
 - **External images toggle** (hidden by default for safety)
 - **Search autocomplete** with Tab completion
 - **Real-time notifications** via WebSocket (instant updates when emails arrive)
@@ -57,7 +57,7 @@ MockMyMTA is a single Go binary that runs an SMTP server on port 1025 and a web 
 - `GET /api/stats` — email count, uptime, server info
 - `GET /api/health` — health check
 - `GET /api/ws` — WebSocket for real-time events
-- Bulk delete/relay endpoints
+- Bulk delete/relay/mark-read/mark-unread endpoints
 - XSS-safe HTML body serving (bluemonday sanitization)
 - **Deep link URLs** — shareable hash-based URLs for searches, emails, and tabs
 
@@ -69,7 +69,7 @@ MockMyMTA is a single Go binary that runs an SMTP server on port 1025 and a web 
 - Configurable per-operation routing (read, search, write, raw, cache)
 
 ### Testing
-- **55 Playwright e2e tests** with screenshots in the report
+- **58 Playwright e2e tests** with screenshots in the report
 - **90+ Go unit tests** across 9 test files
 - Docker-based test execution
 - GitHub Actions CI with Playwright report deployed to GitHub Pages
