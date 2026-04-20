@@ -495,18 +495,25 @@ func (mp Multipart) GetPartByCID(cid string) (leafNode, bool) {
 }
 
 var (
-	scriptRe     = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
-	styleRe      = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
-	htmlTagRe    = regexp.MustCompile(`<[^>]*>`)
-	htmlEntityRe = regexp.MustCompile(`&[a-zA-Z0-9#]+;`)
+	scriptRe       = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
+	styleRe        = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
+	htmlCommentRe  = regexp.MustCompile(`(?s)<!--.*?-->`)
+	htmlTagRe      = regexp.MustCompile(`<[^>]*>`)
+	xmlTagRe       = regexp.MustCompile(`(?s)<\?xml.*?\?>`)
+	htmlEntityRe   = regexp.MustCompile(`&[a-zA-Z0-9#]+;`)
 )
 
-// stripHTMLTags removes script/style elements entirely, strips remaining HTML
-// tags, decodes common entities, and collapses whitespace for plain-text preview.
+// stripHTMLTags removes script/style elements, HTML comments (including
+// conditional comments like <!--[if mso]>), strips remaining HTML/XML tags,
+// decodes common entities, and collapses whitespace for plain-text preview.
 func stripHTMLTags(s string) string {
 	// Remove <script>...</script> and <style>...</style> blocks (including content)
 	s = scriptRe.ReplaceAllString(s, " ")
 	s = styleRe.ReplaceAllString(s, " ")
+	// Remove HTML comments (includes <!--[if mso]>...<![endif]--> conditional blocks)
+	s = htmlCommentRe.ReplaceAllString(s, " ")
+	// Remove XML processing instructions
+	s = xmlTagRe.ReplaceAllString(s, " ")
 	// Remove remaining HTML tags
 	s = htmlTagRe.ReplaceAllString(s, " ")
 	// Decode common HTML entities

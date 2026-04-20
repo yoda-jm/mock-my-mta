@@ -522,6 +522,33 @@ func TestMultipartAlternative(t *testing.T) {
 		}
 	})
 
+	t.Run("HTMLWithConditionalComments_PreviewStripsContent", func(t *testing.T) {
+		htmlEmail := "From: test@test.com\r\nTo: rcpt@test.com\r\nSubject: Test\r\nContent-Type: text/html; charset=\"utf-8\"\r\n\r\n" +
+			"<html><head>" +
+			"<!--[if mso]><noscript><xml><o:OfficeDocumentSettings>" +
+			"<o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch>" +
+			"</o:OfficeDocumentSettings></xml></noscript><![endif]-->" +
+			"<!--[if lte mso 11]><style>.mj-outlook-group-fix { width: 100% !important; }</style><![endif]-->" +
+			"</head><body><p>Actual content</p></body></html>"
+		mp, err := ParseEmailFromBytes([]byte(htmlEmail))
+		if err != nil {
+			t.Fatalf("ParseEmailFromBytes() error: %v", err)
+		}
+		preview := mp.GetPreview()
+		if strings.Contains(preview, "OfficeDocument") {
+			t.Errorf("GetPreview() should not contain MSO conditional content, got %q", preview)
+		}
+		if strings.Contains(preview, "PixelsPerInch") {
+			t.Errorf("GetPreview() should not contain MSO XML content, got %q", preview)
+		}
+		if strings.Contains(preview, "mj-outlook") {
+			t.Errorf("GetPreview() should not contain conditional CSS, got %q", preview)
+		}
+		if !strings.Contains(preview, "Actual content") {
+			t.Errorf("GetPreview() should contain 'Actual content', got %q", preview)
+		}
+	})
+
 	t.Run("NoContentType_GetBodyPlainText", func(t *testing.T) {
 		mp := loadTestEmail(t, filepath.Join(basePath, "no_content_type.eml"))
 
