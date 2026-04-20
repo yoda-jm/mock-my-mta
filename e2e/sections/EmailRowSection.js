@@ -9,7 +9,7 @@ class EmailRowSection {
     this.page = page;
     this.locator = rowLocator;
     /** Locators exposed for direct assertions in tests */
-    this.fromCell      = rowLocator.locator('[data-testid^="email-from-"]');
+    this.toCell        = rowLocator.locator('[data-testid^="email-to-"]');
     this.previewCell   = rowLocator.locator('[data-testid^="email-preview-"]');
     this.deleteButton  = rowLocator.locator('[data-testid^="email-delete-button-"]');
     this.releaseButton = rowLocator.locator('[data-testid^="email-release-button-"]');

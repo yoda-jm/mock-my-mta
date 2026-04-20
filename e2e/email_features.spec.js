@@ -216,8 +216,8 @@ test.describe('Email Feature Tests', () => {
     await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
 
     expect(await inbox.emailList.pagination.totalEmails()).toBe(1);
-    await expect(inbox.emailList.firstRow().fromCell)
-      .toContainText('uniquesender@filter-test.net');
+    await expect(inbox.emailList.firstRow().toCell)
+      .toContainText('recipient@example.com');
     await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/features-filter-from.png');
   });
 

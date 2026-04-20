@@ -236,6 +236,82 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.page.locator('#bulk-toolbar')).toBeHidden();
   });
 
+  // ── Bulk mark read/unread ───────────────────────────────────────────────
+
+  test('Bulk mark as read — selected emails become read', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+
+    // Reset all read status so everything is unread
+    const baseUrl = inbox.page.url().replace(/#.*$/, '').replace(/\/$/, '');
+    await inbox.page.request.delete(baseUrl + '/api/read-status');
+    await inbox.emailList.refresh();
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // Get first two email IDs
+    const firstRow = inbox.emailList.rows().nth(0);
+    const secondRow = inbox.emailList.rows().nth(1);
+    const firstId = (await firstRow.getAttribute('data-testid')).replace('email-row-', '');
+    const secondId = (await secondRow.getAttribute('data-testid')).replace('email-row-', '');
+
+    // Both should be unread
+    await expect(firstRow).toHaveClass(/email-unread/);
+    await expect(secondRow).toHaveClass(/email-unread/);
+
+    // Select the first two checkboxes
+    const checkboxes = inbox.page.locator('[data-testid^="email-checkbox-"]');
+    await checkboxes.nth(0).check();
+    await checkboxes.nth(1).check();
+
+    // Click bulk mark read
+    const resp = inbox.page.waitForResponse(r => r.url().includes('/bulk-mark-read'));
+    await inbox.page.locator('[data-testid="bulk-mark-read-button"]').click();
+    await resp;
+
+    // Both should now be read
+    await expect(inbox.page.locator(`[data-testid="email-row-${firstId}"]`)).toHaveClass(/email-read/, { timeout: 5000 });
+    await expect(inbox.page.locator(`[data-testid="email-row-${secondId}"]`)).toHaveClass(/email-read/);
+  });
+
+  test('Bulk mark as unread — selected emails become unread', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+
+    const baseUrl = inbox.page.url().replace(/#.*$/, '').replace(/\/$/, '');
+
+    // First mark all as read via API so we have a known state
+    const listResp = await inbox.page.request.get(baseUrl + '/api/emails/');
+    const listData = await listResp.json();
+    const allIds = listData.emails.map(e => e.id);
+    await inbox.page.request.post(baseUrl + '/api/emails/bulk-mark-read', {
+      data: { ids: allIds },
+    });
+    await inbox.emailList.refresh();
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // Get first two email IDs
+    const firstRow = inbox.emailList.rows().nth(0);
+    const secondRow = inbox.emailList.rows().nth(1);
+    const firstId = (await firstRow.getAttribute('data-testid')).replace('email-row-', '');
+    const secondId = (await secondRow.getAttribute('data-testid')).replace('email-row-', '');
+
+    // Both should be read
+    await expect(firstRow).toHaveClass(/email-read/);
+    await expect(secondRow).toHaveClass(/email-read/);
+
+    // Select the first two checkboxes
+    const checkboxes = inbox.page.locator('[data-testid^="email-checkbox-"]');
+    await checkboxes.nth(0).check();
+    await checkboxes.nth(1).check();
+
+    // Click bulk mark unread
+    const resp = inbox.page.waitForResponse(r => r.url().includes('/bulk-mark-unread'));
+    await inbox.page.locator('[data-testid="bulk-mark-unread-button"]').click();
+    await resp;
+
+    // Both should now be unread
+    await expect(inbox.page.locator(`[data-testid="email-row-${firstId}"]`)).toHaveClass(/email-unread/, { timeout: 5000 });
+    await expect(inbox.page.locator(`[data-testid="email-row-${secondId}"]`)).toHaveClass(/email-unread/);
+  });
+
   // ── Destructive tests (run last — mutate server state) ──────────────────
 
   test('Bulk delete — removes selected emails', async () => {

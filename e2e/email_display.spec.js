@@ -55,15 +55,15 @@ test.describe('Email Display Tests', () => {
     await screenshotLocator(inbox.emailView.header, test.info(), 'screenshots/display-from-display-name.png');
   });
 
-  test('From raw address shown in list row when no display name', async () => {
-    // email_unique_from.eml has From: uniquesender@filter-test.net (no display name)
+  test('Recipient address shown in list row To column', async () => {
+    // email_unique_from.eml has To: recipient@example.com
     await inbox.search.search('from:uniquesender@filter-test.net');
     await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
 
-    // The from cell should contain the raw address directly (no display name)
+    // The to cell should contain the recipient address
     const firstRow = inbox.emailList.firstRow();
-    await expect(firstRow.fromCell).toContainText('uniquesender@filter-test.net');
-    await screenshotLocator(firstRow.locator, test.info(), 'screenshots/display-from-raw-address.png');
+    await expect(firstRow.toCell).toContainText('recipient@example.com');
+    await screenshotLocator(firstRow.locator, test.info(), 'screenshots/display-to-address.png');
   });
 
   // ── Decoding ─────────────────────────────────────────────────────────────

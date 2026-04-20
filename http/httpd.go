@@ -74,6 +74,8 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/emails/", s.deleteEmails).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/bulk-delete", s.bulkDeleteEmails).Methods("POST")
 	apiRouter.HandleFunc("/emails/bulk-relay", s.bulkRelayEmails).Methods("POST")
+	apiRouter.HandleFunc("/emails/bulk-mark-read", s.bulkMarkRead).Methods("POST")
+	apiRouter.HandleFunc("/emails/bulk-mark-unread", s.bulkMarkUnread).Methods("POST")
 	apiRouter.HandleFunc("/emails/{email_id}", s.getEmailByID).Methods("GET")
 	apiRouter.HandleFunc("/emails/{email_id}", s.deleteEmailByID).Methods("DELETE")
 	apiRouter.HandleFunc("/emails/{email_id}/body/{body_version}", s.getBodyVersion).Methods("GET")
@@ -613,6 +615,42 @@ func (s *Server) bulkRelayEmails(w http.ResponseWriter, r *http.Request) {
 		} else {
 			result.Succeeded = append(result.Succeeded, id)
 		}
+	}
+	writeJSONResponse(w, result)
+}
+
+type BulkReadStatusRequest struct {
+	IDs []string `json:"ids"`
+}
+
+func (s *Server) bulkMarkRead(w http.ResponseWriter, r *http.Request) {
+	var request BulkReadStatusRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse request body: %v", err)
+		return
+	}
+
+	result := BulkResult{}
+	for _, id := range request.IDs {
+		s.readEmails.Store(id, true)
+		result.Succeeded = append(result.Succeeded, id)
+	}
+	writeJSONResponse(w, result)
+}
+
+func (s *Server) bulkMarkUnread(w http.ResponseWriter, r *http.Request) {
+	var request BulkReadStatusRequest
+	err := json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, "cannot parse request body: %v", err)
+		return
+	}
+
+	result := BulkResult{}
+	for _, id := range request.IDs {
+		s.readEmails.Delete(id)
+		result.Succeeded = append(result.Succeeded, id)
 	}
 	writeJSONResponse(w, result)
 }

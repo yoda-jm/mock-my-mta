@@ -20,6 +20,9 @@
     --icon: #6c757d;
     --shadow: rgba(0, 0, 0, 0.06);
     --shadow-lg: rgba(0, 0, 0, 0.1);
+    --bg-unread: #ffffff;
+    --bg-read: #f2f6fc;
+    --text-read: #5f6368;
 }
 
 [data-theme="dark"] {
@@ -43,6 +46,9 @@
     --icon: #848d9c;
     --shadow: rgba(0, 0, 0, 0.2);
     --shadow-lg: rgba(0, 0, 0, 0.3);
+    --bg-unread: #2c313a;
+    --bg-read: #21252b;
+    --text-read: #7a818c;
 }
 
 /* ── Base ───────────────────────────────────────────────────────────── */
@@ -300,7 +306,7 @@ body {
 }
 
 .email-table th.checkbox-col, .email-table td.checkbox-col { width: 36px; text-align: center; }
-.email-table th.from-col, .email-table td.from-col { width: 18%; }
+.email-table th.to-col, .email-table td.to-col { width: 18%; }
 .email-table th.preview-col, .email-table td.preview-col { width: 46%; }
 .email-table th.attachment-col, .email-table td.attachment-col { width: 36px; text-align: center; }
 .email-table th.date-col, .email-table td.date-col { width: 14%; }
@@ -314,27 +320,6 @@ body {
 
 .email-item:hover {
     background: var(--bg-hover);
-}
-
-.email-unread td {
-    font-weight: 600;
-}
-
-.email-unread td.sender {
-    color: var(--accent);
-}
-
-.email-unread td.preview strong {
-    color: var(--text-primary);
-}
-
-.email-read td {
-    font-weight: 400;
-    color: var(--text-secondary);
-}
-
-.email-read td.sender {
-    font-weight: 400;
 }
 
 .email-item td {
@@ -359,12 +344,52 @@ body {
     color: var(--text-secondary);
 }
 
-.email-item td.sender {
+/* ── Unread: sender + subject bold, elevated background ────────────── */
+.email-unread {
+    background: var(--bg-unread);
+}
+
+.email-unread td {
+    color: var(--text-primary);
+}
+
+.email-unread td.recipient,
+.email-unread td.recipient span {
+    font-weight: 600;
+}
+
+.email-unread td.preview strong {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.email-unread td.preview span {
+    color: var(--text-secondary);
+}
+
+/* ── Read: normal weight, recessed background, muted text ──────────── */
+.email-read {
+    background: var(--bg-read);
+}
+
+.email-read td {
+    color: var(--text-read);
+}
+
+.email-read td.preview strong {
+    font-weight: 400;
+    color: var(--text-read);
+}
+
+.email-read td.preview span {
+    color: var(--text-muted);
+}
+
+.email-item td.recipient {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 0;
-    font-weight: 500;
 }
 
 .email-item td.date {

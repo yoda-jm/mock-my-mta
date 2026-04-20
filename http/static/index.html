@@ -78,6 +78,12 @@
                     </button>
                     <div id="bulk-toolbar" style="display:none;" class="align-items-center gap-1">
                         <span id="bulk-count" class="badge bg-primary"></span>
+                        <button id="bulk-mark-read" class="btn btn-sm btn-outline-secondary" data-testid="bulk-mark-read-button" title="Mark selected as read">
+                            <i class="bi bi-envelope-open"></i> Read
+                        </button>
+                        <button id="bulk-mark-unread" class="btn btn-sm btn-outline-secondary" data-testid="bulk-mark-unread-button" title="Mark selected as unread">
+                            <i class="bi bi-envelope"></i> Unread
+                        </button>
                         <button id="bulk-delete" class="btn btn-sm btn-outline-danger" data-testid="bulk-delete-button" title="Delete selected">
                             <i class="bi bi-trash"></i> Delete
                         </button>
@@ -107,7 +113,7 @@
                     <thead>
                         <tr>
                             <th class="checkbox-col"><input type="checkbox" class="form-check-input" id="select-all-checkbox" data-testid="select-all-checkbox" title="Select all"></th>
-                            <th class="from-col">From</th>
+                            <th class="to-col">To</th>
                             <th class="preview-col">Preview</th>
                             <th class="attachment-col"><!-- has attachment --></th>
                             <th class="date-col">Date</th>

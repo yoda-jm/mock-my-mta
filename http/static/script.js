@@ -673,6 +673,42 @@ $(function () {
         });
     });
 
+    $('#bulk-mark-read').click(function () {
+        if (selectedEmailIds.size === 0) return;
+        $.ajax({
+            url: '/api/emails/bulk-mark-read',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ ids: Array.from(selectedEmailIds) }),
+            success: function (data) {
+                showPopup(data.succeeded.length + ' email(s) marked as read', 'success');
+                clearSelection();
+                refreshEmailList();
+            },
+            error: function () {
+                showPopup('Bulk mark read failed', 'error');
+            }
+        });
+    });
+
+    $('#bulk-mark-unread').click(function () {
+        if (selectedEmailIds.size === 0) return;
+        $.ajax({
+            url: '/api/emails/bulk-mark-unread',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ ids: Array.from(selectedEmailIds) }),
+            success: function (data) {
+                showPopup(data.succeeded.length + ' email(s) marked as unread', 'success');
+                clearSelection();
+                refreshEmailList();
+            },
+            error: function () {
+                showPopup('Bulk mark unread failed', 'error');
+            }
+        });
+    });
+
     $('#bulk-release').click(function () {
         if (selectedEmailIds.size === 0) return;
         // Open release modal but wire it up for bulk relay
@@ -1180,7 +1216,7 @@ $(function () {
                     .attr('data-testid', 'email-checkbox-' + email.id)
                     .click(function(e) { e.stopPropagation(); })
             ))
-            .append($('<td class="sender" data-testid="email-from-' + email.id + '">').append(formatEmailAddress(email.from)))
+            .append($('<td class="recipient" data-testid="email-to-' + email.id + '">').append(formatRecipientSummary(email.tos)))
             .append($('<td class="preview" data-testid="email-preview-' + email.id + '">').append($('<strong>').text(email.subject + ' - ')).append($('<span>').css('font-style', 'italic').text(email.preview)))
             .append($('<td data-testid="email-attachment-icon-' + email.id + '">').append(email.has_attachments ? $('<i class="bi bi-paperclip icon">') : ''))
             .append($('<td class="date" data-testid="email-date-' + email.id + '">').text(formatDateTime(email.date)))
@@ -1273,6 +1309,18 @@ $(function () {
             }
         }
         return formattedAddresses;
+    }
+
+    function formatRecipientSummary(addresses) {
+        if (!addresses || addresses.length === 0) return $('<span>');
+        var first = addresses[0];
+        var label = first.name || first.address;
+        var allAddresses = addresses.map(function(a) { return a.name ? a.name + ' <' + a.address + '>' : a.address; }).join(', ');
+        var el = $('<span>').attr('title', allAddresses).text(label);
+        if (addresses.length > 1) {
+            el.append($('<span>').css('opacity', '0.6').text(' (+' + (addresses.length - 1) + ')'));
+        }
+        return el;
     }
 
     function showPopup(message, type = 'info') {

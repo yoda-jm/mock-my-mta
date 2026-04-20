@@ -516,6 +516,120 @@ func TestBulkDelete_MalformedJSON(t *testing.T) {
 	}
 }
 
+func TestBulkMarkRead_Success(t *testing.T) {
+	store := newMockStorage()
+	store.emails["email-1"] = storage.EmailHeader{ID: "email-1", Subject: "E1"}
+	store.emails["email-2"] = storage.EmailHeader{ID: "email-2", Subject: "E2"}
+	srv := newTestServer(store)
+
+	body := `{"ids":["email-1","email-2"]}`
+	req := httptest.NewRequest("POST", "/api/emails/bulk-mark-read", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var result BulkResult
+	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+		t.Fatalf("could not unmarshal response: %v", err)
+	}
+	if len(result.Succeeded) != 2 {
+		t.Errorf("expected 2 succeeded, got %d", len(result.Succeeded))
+	}
+
+	// Verify emails are now marked as read via the list endpoint
+	listReq := httptest.NewRequest("GET", "/api/emails/", nil)
+	listRR := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(listRR, listReq)
+
+	var resp SearchEmailsResponse
+	if err := json.Unmarshal(listRR.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("could not unmarshal: %v", err)
+	}
+	for _, email := range resp.Emails {
+		if !email.IsRead {
+			t.Errorf("expected email %s to be marked as read", email.ID)
+		}
+	}
+}
+
+func TestBulkMarkUnread_Success(t *testing.T) {
+	store := newMockStorage()
+	store.emails["email-1"] = storage.EmailHeader{ID: "email-1", Subject: "E1"}
+	store.emails["email-2"] = storage.EmailHeader{ID: "email-2", Subject: "E2"}
+	srv := newTestServer(store)
+
+	// First mark them as read
+	markBody := `{"ids":["email-1","email-2"]}`
+	markReq := httptest.NewRequest("POST", "/api/emails/bulk-mark-read", strings.NewReader(markBody))
+	markReq.Header.Set("Content-Type", "application/json")
+	markRR := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(markRR, markReq)
+
+	// Now mark them as unread
+	body := `{"ids":["email-1","email-2"]}`
+	req := httptest.NewRequest("POST", "/api/emails/bulk-mark-unread", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var result BulkResult
+	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+		t.Fatalf("could not unmarshal response: %v", err)
+	}
+	if len(result.Succeeded) != 2 {
+		t.Errorf("expected 2 succeeded, got %d", len(result.Succeeded))
+	}
+
+	// Verify emails are now unread via the list endpoint
+	listReq := httptest.NewRequest("GET", "/api/emails/", nil)
+	listRR := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(listRR, listReq)
+
+	var resp SearchEmailsResponse
+	if err := json.Unmarshal(listRR.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("could not unmarshal: %v", err)
+	}
+	for _, email := range resp.Emails {
+		if email.IsRead {
+			t.Errorf("expected email %s to be marked as unread", email.ID)
+		}
+	}
+}
+
+func TestBulkMarkRead_MalformedJSON(t *testing.T) {
+	store := newMockStorage()
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest("POST", "/api/emails/bulk-mark-read", strings.NewReader("{bad"))
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", rr.Code)
+	}
+}
+
+func TestBulkMarkUnread_MalformedJSON(t *testing.T) {
+	store := newMockStorage()
+	srv := newTestServer(store)
+
+	req := httptest.NewRequest("POST", "/api/emails/bulk-mark-unread", strings.NewReader("{bad"))
+	rr := httptest.NewRecorder()
+	srv.server.Handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", rr.Code)
+	}
+}
+
 func TestGetStats(t *testing.T) {
 	store := newMockStorage()
 	store.emails["e1"] = storage.EmailHeader{ID: "e1", Subject: "Test"}
