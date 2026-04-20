@@ -196,10 +196,12 @@ body {
 .search-input-container {
     position: relative;
     flex-grow: 1;
+    background-color: var(--bg-surface);
+    border-radius: 8px;
 }
 
 .search-box .search-input-container input.form-control {
-    background-color: var(--bg-surface);
+    background-color: transparent;
     border: 1px solid var(--border);
     color: var(--text-primary);
     position: relative;
@@ -210,7 +212,7 @@ body {
 }
 
 .search-box .search-input-container input.form-control:focus {
-    background-color: var(--bg-main);
+    background-color: transparent;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-light);
 }

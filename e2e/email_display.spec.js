@@ -218,8 +218,14 @@ test.describe('Email Display Tests', () => {
     await inbox.search.input.dispatchEvent('keyup');
     await resp;
 
-    // The suggestion display should show "subject:<text>"
+    // The suggestion display should show "subject:<text>" and be visually visible
     await expect(suggestionDisplay).toHaveText(/subject:/);
+    // The suggestion must be visible through the transparent input background
+    await expect(suggestionDisplay).toBeVisible();
+    const box = await suggestionDisplay.boundingBox();
+    expect(box).toBeTruthy();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
     await takeAndAttachScreenshot(inbox.page, test.info(), 'screenshots/display-autocomplete-suggestion.png');
   });
 
