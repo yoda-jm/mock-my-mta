@@ -525,8 +525,16 @@ $(function () {
         const wsUrl = protocol + '//' + window.location.host + '/api/ws';
         const ws = new WebSocket(wsUrl);
 
+        let wsPingInterval = null;
+
         ws.onopen = function () {
             $('#connection-status').hide();
+            // Send a keepalive message every 10s to prevent proxy idle timeout
+            wsPingInterval = setInterval(function () {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send('ping');
+                }
+            }, 10000);
         };
 
         ws.onmessage = function (event) {
@@ -546,8 +554,16 @@ $(function () {
         };
 
         ws.onclose = function () {
-            $('#connection-status').show();
-            setTimeout(connectWebSocket, 3000);
+            if (wsPingInterval) clearInterval(wsPingInterval);
+            // Show banner after 5s of being disconnected (avoid flashing on brief drops)
+            const bannerTimeout = setTimeout(function () {
+                $('#connection-status').show();
+            }, 5000);
+            // Reconnect after 2s
+            setTimeout(function () {
+                clearTimeout(bannerTimeout);
+                connectWebSocket();
+            }, 2000);
         };
 
         ws.onerror = function () {
