@@ -497,6 +497,31 @@ func TestMultipartAlternative(t *testing.T) {
 		}
 	})
 
+	t.Run("HTMLWithScriptAndStyle_PreviewStripsContent", func(t *testing.T) {
+		htmlEmail := "From: test@test.com\r\nTo: rcpt@test.com\r\nSubject: Test\r\nContent-Type: text/html; charset=\"utf-8\"\r\n\r\n" +
+			"<html><head><style>#outlook a { padding: 0; } body { margin: 0; }</style>" +
+			"<script>alert('xss')</script></head><body><p>Hello World</p></body></html>"
+		mp, err := ParseEmailFromBytes([]byte(htmlEmail))
+		if err != nil {
+			t.Fatalf("ParseEmailFromBytes() error: %v", err)
+		}
+		preview := mp.GetPreview()
+		// Preview must NOT contain CSS or JS content
+		if strings.Contains(preview, "padding") {
+			t.Errorf("GetPreview() should not contain CSS content, got %q", preview)
+		}
+		if strings.Contains(preview, "alert") {
+			t.Errorf("GetPreview() should not contain script content, got %q", preview)
+		}
+		if strings.Contains(preview, "outlook") {
+			t.Errorf("GetPreview() should not contain CSS selectors, got %q", preview)
+		}
+		// Preview should contain the actual text
+		if !strings.Contains(preview, "Hello World") {
+			t.Errorf("GetPreview() should contain 'Hello World', got %q", preview)
+		}
+	})
+
 	t.Run("NoContentType_GetBodyPlainText", func(t *testing.T) {
 		mp := loadTestEmail(t, filepath.Join(basePath, "no_content_type.eml"))
 

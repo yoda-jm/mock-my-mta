@@ -494,11 +494,30 @@ func (mp Multipart) GetPartByCID(cid string) (leafNode, bool) {
 	return foundNode, found
 }
 
-var htmlTagRe = regexp.MustCompile(`<[^>]*>`)
+var (
+	scriptRe     = regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
+	styleRe      = regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
+	htmlTagRe    = regexp.MustCompile(`<[^>]*>`)
+	htmlEntityRe = regexp.MustCompile(`&[a-zA-Z0-9#]+;`)
+)
 
-// stripHTMLTags removes HTML tags and collapses whitespace for plain-text preview.
+// stripHTMLTags removes script/style elements entirely, strips remaining HTML
+// tags, decodes common entities, and collapses whitespace for plain-text preview.
 func stripHTMLTags(s string) string {
+	// Remove <script>...</script> and <style>...</style> blocks (including content)
+	s = scriptRe.ReplaceAllString(s, " ")
+	s = styleRe.ReplaceAllString(s, " ")
+	// Remove remaining HTML tags
 	s = htmlTagRe.ReplaceAllString(s, " ")
+	// Decode common HTML entities
+	s = strings.ReplaceAll(s, "&nbsp;", " ")
+	s = strings.ReplaceAll(s, "&amp;", "&")
+	s = strings.ReplaceAll(s, "&lt;", "<")
+	s = strings.ReplaceAll(s, "&gt;", ">")
+	s = strings.ReplaceAll(s, "&quot;", "\"")
+	s = strings.ReplaceAll(s, "&#39;", "'")
+	// Remove any remaining entities
+	s = htmlEntityRe.ReplaceAllString(s, " ")
 	// Collapse runs of whitespace into a single space
 	return strings.Join(strings.Fields(s), " ")
 }
