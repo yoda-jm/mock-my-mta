@@ -320,13 +320,21 @@ body {
     font-weight: 600;
 }
 
-.email-unread td.preview span {
-    font-weight: 400;
+.email-unread td.sender {
+    color: var(--accent);
+}
+
+.email-unread td.preview strong {
+    color: var(--text-primary);
 }
 
 .email-read td {
     font-weight: 400;
-    opacity: 0.85;
+    color: var(--text-secondary);
+}
+
+.email-read td.sender {
+    font-weight: 400;
 }
 
 .email-item td {

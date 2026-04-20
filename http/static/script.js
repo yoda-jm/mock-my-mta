@@ -474,9 +474,19 @@ $(function () {
     });
 
     $('#refresh').click(function () {
-        // Refresh the email list
         console.log('Refreshing emails');
         refreshEmailList();
+    });
+
+    $('#mark-all-unread').click(function () {
+        $.ajax({
+            url: '/api/read-status',
+            type: 'DELETE',
+            success: function () {
+                showPopup('All emails marked as unread', 'info');
+                refreshEmailList();
+            }
+        });
     });
 
     $('#allEmails').click(function () {
@@ -548,6 +558,9 @@ $(function () {
                     refreshEmailList();
                     break;
                 case 'delete_all':
+                    refreshEmailList();
+                    break;
+                case 'read_status_reset':
                     refreshEmailList();
                     break;
             }
@@ -1118,9 +1131,10 @@ $(function () {
     }
 
     function updateEmailContent(email) {
-        // Update the email content
         console.log('Updating email content ' + email.id);
         currentEmailId = email.id;
+        // Mark as read on the server (fire-and-forget)
+        $.get('/api/emails/' + encodeURIComponent(email.id));
         updateEmailContentHeader(email);
         updateEmailAttachments(email.id);
         const selectedBodyVersion = pickBestBodyVersion(email.body_versions);

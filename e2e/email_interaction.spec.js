@@ -162,6 +162,41 @@ test.describe('Email Interaction Tests', () => {
     await expect(inbox.emailView.externalImagesToggle).not.toBeChecked();
   });
 
+  // ── Read/unread tracking ───────────────────────────────────────────────
+
+  test('Email marked as read after viewing', async () => {
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 10000 });
+
+    // Reset all read status
+    const baseUrl = inbox.page.url().replace(/#.*$/, '').replace(/\/$/, '');
+    await inbox.page.request.delete(baseUrl + '/api/read-status');
+    await inbox.emailList.refresh();
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+
+    // Get the first email's ID from its data-testid
+    const firstRowTestId = await inbox.emailList.rows().first().getAttribute('data-testid');
+    const emailId = firstRowTestId.replace('email-row-', '');
+    const emailRow = inbox.page.locator(`[data-testid="email-row-${emailId}"]`);
+
+    // Should be unread
+    await expect(emailRow).toHaveClass(/email-unread/);
+
+    // Open and go back
+    await inbox.emailList.firstRow().open();
+    await expect(inbox.emailView.locator).toBeVisible();
+    await inbox.emailView.goBack();
+    await expect(inbox.emailList.rows().first()).toBeVisible({ timeout: 5000 });
+    await inbox.page.waitForTimeout(500);
+
+    // Same email by ID should now be read
+    await expect(emailRow).toHaveClass(/email-read/);
+
+    // Verify via API too
+    const resp = await inbox.page.request.get(baseUrl + '/api/emails/' + encodeURIComponent(emailId));
+    const data = await resp.json();
+    expect(data.is_read).toBe(true);
+  });
+
   // ── Bulk operations ────────────────────────────────────────────────────
 
   test('Bulk select — checkbox selects emails and shows toolbar', async () => {

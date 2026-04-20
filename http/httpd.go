@@ -93,6 +93,7 @@ func NewServer(config Configuration, relayConfigurations smtp.RelayConfiguration
 	apiRouter.HandleFunc("/stats", s.getStats).Methods("GET")
 	apiRouter.HandleFunc("/settings", handleGetSettings).Methods("GET")
 	apiRouter.HandleFunc("/settings", handlePutSettings).Methods("PUT")
+	apiRouter.HandleFunc("/read-status", s.resetReadStatus).Methods("DELETE")
 	// WebSocket for real-time notifications
 	apiRouter.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		handleWebSocket(w, r)
@@ -699,6 +700,12 @@ func (s *Server) getHealth(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusServiceUnavailable, "storage unhealthy: %v", err)
 		return
 	}
+	writeJSONResponse(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) resetReadStatus(w http.ResponseWriter, r *http.Request) {
+	s.readEmails = sync.Map{}
+	BroadcastEvent("read_status_reset", nil)
 	writeJSONResponse(w, map[string]string{"status": "ok"})
 }
 
