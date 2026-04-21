@@ -430,6 +430,16 @@ func TestSanitizeHTML(t *testing.T) {
 			contains: "<p>Content</p>",
 			absent:   "onload",
 		},
+		{
+			name:     "preserves style blocks",
+			input:    `<html><head><style>.header { color: red; } @media (max-width: 600px) { .header { font-size: 14px; } }</style></head><body><p class="header">Styled</p></body></html>`,
+			contains: "<style>",
+		},
+		{
+			name:     "preserves inline styles and class attributes",
+			input:    `<td style="padding: 10px; background-color: #fff;" class="content">Hello</td>`,
+			contains: `style="padding: 10px; background-color: #fff;"`,
+		},
 	}
 
 	for _, tt := range tests {

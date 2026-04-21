@@ -867,6 +867,15 @@ var emailHTMLPolicy = func() *bluemonday.Policy {
 	p := bluemonday.UGCPolicy()
 	p.AllowImages()
 	p.AllowStyling()
+	// Allow <style> blocks — email HTML relies on them for layout and
+	// responsive design. Safe because the body is rendered inside a Shadow
+	// DOM (isolated from the page) and <script> tags are still stripped.
+	// All three calls are required: AllowElementsContent removes "style"
+	// from bluemonday's skip-content set, AllowElements whitelists the tag,
+	// and AllowUnsafe permits the CSS text content inside the element.
+	p.AllowElementsContent("style")
+	p.AllowElements("style")
+	p.AllowUnsafe(true)
 	p.AllowAttrs("style").Globally()
 	p.AllowAttrs("class").Globally()
 	p.AllowAttrs("width", "height", "alt", "title").OnElements("img")
@@ -888,6 +897,13 @@ func rewriteSenderHeader(raw []byte, sender string) []byte {
 	msg, err := mail.ReadMessage(bytes.NewReader(raw))
 	if err != nil {
 		// If parsing fails, return the original message unchanged.
+		return raw
+	}
+
+	// Skip rewrite if the sender matches the original From header — avoids
+	// re-serialization artifacts that can alter header formatting.
+	originalFrom := msg.Header.Get("From")
+	if originalFrom == sender {
 		return raw
 	}
 
