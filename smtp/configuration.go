@@ -3,6 +3,7 @@ package smtp
 type Configuration struct {
 	Addr           string              `json:"addr"`
 	MaxMessageSize int                 `json:"max_message_size"` // bytes; 0 = unlimited
+	RequireAuth    bool                `json:"require_auth"`     // when true, clients must AUTH before sending
 	Relays         RelayConfigurations `json:"relays"`
 }
 

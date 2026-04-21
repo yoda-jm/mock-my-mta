@@ -67,8 +67,13 @@ func NewServer(config Configuration, storageEngine storage.StorageService) *Serv
 		RecipientChecker:  s.recipientChecker,
 		TLSConfig:         tlsConfig,
 		ForceTLS:          false, // STARTTLS available but not required
-		Authenticator:     s.authenticator,
 		MaxMessageSize:    config.MaxMessageSize,
+	}
+	// Only require AUTH when explicitly configured. The chrj/smtpd library
+	// returns 530 when Authenticator is set, so leaving it nil lets clients
+	// send without credentials (the common case for a mock server).
+	if config.RequireAuth {
+		s.server.Authenticator = s.authenticator
 	}
 	if config.MaxMessageSize > 0 {
 		log.Logf(log.INFO, "SMTP max message size: %d bytes", config.MaxMessageSize)

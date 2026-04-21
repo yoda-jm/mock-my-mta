@@ -199,6 +199,28 @@ func (m *mockIoStorage) SearchEmails(query string, page, pageSize int) ([]storag
 // Ensure mockIoStorage implements storage.StorageService
 var _ storage.StorageService = &mockIoStorage{}
 
+func (m *mockIoStorage) GetRawEmail(emailID string) ([]byte, error) { return nil, nil }
+
+func TestServer_AuthDisabledByDefault(t *testing.T) {
+	mockStore := &mockIoStorage{SetUUID: "test-uuid"}
+	config := Configuration{Addr: "127.0.0.1:0"}
+	s := NewServer(config, mockStore)
+
+	if s.server.Authenticator != nil {
+		t.Fatal("Authenticator should be nil when RequireAuth is false")
+	}
+}
+
+func TestServer_AuthEnabledWhenConfigured(t *testing.T) {
+	mockStore := &mockIoStorage{SetUUID: "test-uuid"}
+	config := Configuration{Addr: "127.0.0.1:0", RequireAuth: true}
+	s := NewServer(config, mockStore)
+
+	if s.server.Authenticator == nil {
+		t.Fatal("Authenticator should be set when RequireAuth is true")
+	}
+}
+
 func TestRelayMessage(t *testing.T) {
 	originalSendMailFn := smtpSendMailFn
 	t.Cleanup(func() { smtpSendMailFn = originalSendMailFn })
